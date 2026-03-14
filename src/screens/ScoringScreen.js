@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Modal, TouchableOpacity } from 'react-native';
-import { Button, Card, Text, Title, IconButton, useTheme, Checkbox, TextInput, Portal, Dialog, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Button, Card, Text, Title, IconButton, useTheme, Checkbox, TextInput, Portal, Dialog, Divider, Appbar } from 'react-native-paper';
 import { useMatch } from '../context/MatchContext';
+import { LayoutList } from 'lucide-react-native';
 
 const ScoringScreen = ({ navigation }) => {
     const theme = useTheme();
     const {
         score, batsmen, bowler, bowlers, thisOver, addBall, undoBall,
         currentMatch, swapStrike, isOverComplete, isMatchStarted,
-        startWithPlayers, setNewBowler, retireBatsman,
+        startWithPlayers, setNewBowler, retireBatsman, declareInnings,
         innings, target, isInningsOver, isMatchOver, matchResult, startSecondInnings, resetMatch
     } = useMatch();
 
@@ -29,16 +30,27 @@ const ScoringScreen = ({ navigation }) => {
     // Wicket Modal State
     const [showWicketModal, setShowWicketModal] = useState(false);
     const [newBatsman, setNewBatsman] = useState('');
+    const [wicketRuns, setWicketRuns] = useState('0');
+    const [runOutStriker, setRunOutStriker] = useState(true);
+    const [isRunOut, setIsRunOut] = useState(false);
 
     useEffect(() => {
-        setShowStartModal(!isMatchStarted);
-    }, [isMatchStarted]);
+        if (!isMatchStarted && !isMatchOver && currentMatch) {
+            setShowStartModal(true);
+            // Clear names if it's the start of an innings (especially 2nd)
+            if (score.runs === 0 && score.overs === 0 && score.balls === 0) {
+                setInitPlayers({ striker: '', nonStriker: '', bowler: '' });
+            }
+        } else {
+            setShowStartModal(false);
+        }
+    }, [isMatchStarted, isMatchOver, currentMatch, score.runs, score.overs, score.balls]);
 
     useEffect(() => {
-        if (isOverComplete) {
+        if (isOverComplete && !isInningsOver && !isMatchOver) {
             setShowBowlerModal(true);
         }
-    }, [isOverComplete]);
+    }, [isOverComplete, isInningsOver, isMatchOver]);
 
     const handleRunPress = (runs) => {
         let extraType = null;
@@ -51,15 +63,26 @@ const ScoringScreen = ({ navigation }) => {
         setExtras({ WIDE: false, NB: false, BYE: false, LB: false });
     };
 
-    const handleWicketPress = () => {
+    const handleWicketPress = (runOut = false) => {
+        setIsRunOut(runOut);
+        setWicketRuns('0');
+        setRunOutStriker(true);
         setShowWicketModal(true);
     };
 
     const submitWicket = () => {
         if (!newBatsman) return showAlert('Please enter the name of the new batsman.');
-        addBall({ runs: 0, extraType: null, isWicket: true, newBatsmanName: newBatsman });
+        addBall({
+            runs: isRunOut ? parseInt(wicketRuns) || 0 : 0,
+            extraType: null,
+            isWicket: true,
+            newBatsmanName: newBatsman,
+            wicketType: isRunOut ? 'Run Out' : 'Caught/Bowled etc',
+            runOutStriker
+        });
         setNewBatsman('');
         setShowWicketModal(false);
+        setIsRunOut(false);
     };
 
     // Error Dialog State
@@ -79,9 +102,10 @@ const ScoringScreen = ({ navigation }) => {
         setShowStartModal(false);
     };
 
-    const submitNewBowler = () => {
-        if (!nextBowler) return showAlert('Please enter the next bowler name.');
-        setNewBowler(nextBowler);
+    const submitNewBowler = (directName = null) => {
+        const nameToSubmit = typeof directName === 'string' ? directName : nextBowler;
+        if (!nameToSubmit) return showAlert('Please enter or select the next bowler name.');
+        setNewBowler(nameToSubmit);
         setNextBowler('');
         setShowBowlerModal(false);
     };
@@ -121,17 +145,19 @@ const ScoringScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+
+
             <Portal>
                 {/* Match Start Modal */}
                 <Dialog visible={showStartModal} dismissable={false} style={styles.boxDialog}>
                     <Dialog.Title style={styles.boxTitle}>Select Starting Players</Dialog.Title>
                     <Dialog.Content>
-                        <TextInput label="Striker Name" value={initPlayers.striker} onChangeText={t => setInitPlayers({ ...initPlayers, striker: t })} mode="outlined" style={styles.modalInput} />
-                        <TextInput label="Non-Striker Name" value={initPlayers.nonStriker} onChangeText={t => setInitPlayers({ ...initPlayers, nonStriker: t })} mode="outlined" style={styles.modalInput} />
-                        <TextInput label="Opening Bowler" value={initPlayers.bowler} onChangeText={t => setInitPlayers({ ...initPlayers, bowler: t })} mode="outlined" style={styles.modalInput} />
+                        <TextInput autoFocus label="Striker Name" value={initPlayers.striker} onChangeText={t => setInitPlayers({ ...initPlayers, striker: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                        <TextInput label="Non-Striker Name" value={initPlayers.nonStriker} onChangeText={t => setInitPlayers({ ...initPlayers, nonStriker: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                        <TextInput label="Opening Bowler" value={initPlayers.bowler} onChangeText={t => setInitPlayers({ ...initPlayers, bowler: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
                     </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={submitInitialPlayers} labelStyle={styles.boxActionText}>Start Scoring</Button>
+                    <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+                        <Button mode="contained" buttonColor="#4C8C4A" onPress={submitInitialPlayers} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Start Scoring</Button>
                     </Dialog.Actions>
                 </Dialog>
 
@@ -142,7 +168,7 @@ const ScoringScreen = ({ navigation }) => {
                         <Text variant="bodyMedium">{errorMessage}</Text>
                     </Dialog.Content>
                     <Dialog.Actions>
-                        <Button onPress={() => setErrorVisible(false)} labelStyle={styles.boxActionText}>OK</Button>
+                        <Button mode="contained" buttonColor="#4C8C4A" onPress={() => setErrorVisible(false)} labelStyle={{ color: 'white', fontWeight: 'bold' }}>OK</Button>
                     </Dialog.Actions>
                 </Dialog>
 
@@ -157,10 +183,12 @@ const ScoringScreen = ({ navigation }) => {
                                     {bowlers?.map((b, idx) => (
                                         <Button
                                             key={idx}
-                                            mode="outlined"
-                                            onPress={() => setNextBowler(b)}
-                                            style={{ marginRight: 8, borderRadius: 0 }}
-                                            labelStyle={{ fontSize: 12 }}
+                                            mode={nextBowler === b ? "contained" : "outlined"}
+                                            buttonColor={nextBowler === b ? "#4C8C4A" : undefined}
+                                            textColor={nextBowler === b ? "white" : "#666"}
+                                            onPress={() => submitNewBowler(b)}
+                                            style={[{ marginRight: 8, borderRadius: 20, borderColor: '#ccc' }, nextBowler === b && { borderWidth: 0 }]}
+                                            labelStyle={{ fontSize: 13, fontWeight: "600", paddingHorizontal: 4 }}
                                         >
                                             {b}
                                         </Button>
@@ -169,10 +197,10 @@ const ScoringScreen = ({ navigation }) => {
                                 <Divider style={{ marginTop: 15 }} />
                             </View>
                         )}
-                        <TextInput label="Next Bowler Name" value={nextBowler} onChangeText={setNextBowler} mode="outlined" />
+                        <TextInput autoFocus label="Next Bowler Name" value={nextBowler} onChangeText={setNextBowler} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
                     </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={submitNewBowler} labelStyle={styles.boxActionText}>Continue</Button>
+                    <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+                        <Button mode="contained" buttonColor="#4C8C4A" onPress={() => submitNewBowler()} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Continue</Button>
                     </Dialog.Actions>
                 </Dialog>
 
@@ -181,24 +209,66 @@ const ScoringScreen = ({ navigation }) => {
                     <Dialog.Title style={styles.boxTitle}>Retire Batsman</Dialog.Title>
                     <Dialog.Content>
                         <Text variant="bodyMedium">Enter name of the new batsman replacing {batsmen?.[0]?.isStriker ? batsmen[0]?.name : batsmen?.[1]?.name}:</Text>
-                        <TextInput label="New Batsman Name" value={retireName} onChangeText={setRetireName} mode="outlined" style={{ marginTop: 10 }} />
+                        <TextInput autoFocus label="New Batsman Name" value={retireName} onChangeText={setRetireName} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
                     </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={() => setShowRetireModal(false)} labelStyle={styles.boxActionText}>Cancel</Button>
-                        <Button onPress={submitRetire} labelStyle={styles.boxActionText}>Done</Button>
+                    <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+                        <Button mode="outlined" onPress={() => setShowRetireModal(false)} textColor="#d32f2f" style={{ flex: 1, marginRight: 10, borderColor: '#d32f2f', borderRadius: 8 }}>Cancel</Button>
+                        <Button mode="contained" buttonColor="#4C8C4A" onPress={submitRetire} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Done</Button>
                     </Dialog.Actions>
                 </Dialog>
 
                 {/* Wicket Modal */}
                 <Dialog visible={showWicketModal} onDismiss={() => setShowWicketModal(false)} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Wicket!</Dialog.Title>
+                    <Dialog.Title style={styles.boxTitle}>{isRunOut ? 'Run Out Details' : 'Wicket!'}</Dialog.Title>
                     <Dialog.Content>
+                        {isRunOut && (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text variant="labelMedium" style={styles.formLabel}>Runs completed before Run Out:</Text>
+                                <View style={styles.choiceGroup}>
+                                    {['0', '1', '2', '3'].map((r) => (
+                                        <Button 
+                                            key={r} 
+                                            mode={wicketRuns === r ? 'contained' : 'outlined'} 
+                                            buttonColor={wicketRuns === r ? '#4C8C4A' : undefined}
+                                            textColor={wicketRuns === r ? 'white' : '#666'}
+                                            style={[styles.choiceBtn, wicketRuns === r && { borderWidth: 0 }, { flex: 1, marginHorizontal: 4, paddingVertical: 5 }]}
+                                            labelStyle={{ fontSize: 18, fontWeight: 'bold' }}
+                                            onPress={() => setWicketRuns(r)} 
+                                        >
+                                            {r}
+                                        </Button>
+                                    ))}
+                                </View>
+                                
+                                <Text variant="labelMedium" style={styles.formLabel}>Who got out?</Text>
+                                <View style={styles.choiceGroup}>
+                                    <Button 
+                                        mode={runOutStriker ? 'contained' : 'outlined'} 
+                                        buttonColor={runOutStriker ? '#4C8C4A' : undefined}
+                                        textColor={runOutStriker ? 'white' : '#666'}
+                                        style={[styles.choiceBtn, { flex: 1, marginRight: 8 }, runOutStriker && { borderWidth: 0 }]}
+                                        onPress={() => setRunOutStriker(true)} 
+                                    >
+                                        Striker
+                                    </Button>
+                                    <Button 
+                                        mode={!runOutStriker ? 'contained' : 'outlined'} 
+                                        buttonColor={!runOutStriker ? '#4C8C4A' : undefined}
+                                        textColor={!runOutStriker ? 'white' : '#666'}
+                                        style={[styles.choiceBtn, { flex: 1 }, !runOutStriker && { borderWidth: 0 }]}
+                                        onPress={() => setRunOutStriker(false)} 
+                                    >
+                                        Non-Striker
+                                    </Button>
+                                </View>
+                            </View>
+                        )}
                         <Text variant="bodyMedium">Enter name of the new batsman:</Text>
-                        <TextInput label="New Batsman Name" value={newBatsman} onChangeText={setNewBatsman} mode="outlined" style={{ marginTop: 10 }} />
+                        <TextInput autoFocus label="New Batsman Name" value={newBatsman} onChangeText={setNewBatsman} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
                     </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={() => setShowWicketModal(false)} labelStyle={styles.boxActionText}>Cancel</Button>
-                        <Button onPress={submitWicket} labelStyle={styles.boxActionText}>Done</Button>
+                    <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+                        <Button mode="outlined" onPress={() => setShowWicketModal(false)} textColor="#d32f2f" style={{ flex: 1, marginRight: 10, borderColor: '#d32f2f', borderRadius: 8 }}>Cancel</Button>
+                        <Button mode="contained" buttonColor="#4C8C4A" onPress={submitWicket} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Done</Button>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>
@@ -214,7 +284,10 @@ const ScoringScreen = ({ navigation }) => {
                             </Text>
                             <Button
                                 mode="contained"
-                                onPress={startSecondInnings}
+                                onPress={() => {
+                                    setInitPlayers({ striker: '', nonStriker: '', bowler: '' });
+                                    startSecondInnings();
+                                }}
                                 style={[styles.greenBtn, { marginTop: 15 }]}
                             >
                                 Start Second Innings
@@ -357,7 +430,7 @@ const ScoringScreen = ({ navigation }) => {
                         <CheckboxItem label="Leg Byes" value={extras.LB} onPress={() => setExtras({ ...extras, LB: !extras.LB })} />
                     </View>
                     <View style={styles.actionMainRow}>
-                        <Button mode="contained" onPress={handleWicketPress} style={[styles.greenBtn, { backgroundColor: theme.colors.error }]}>Wicket</Button>
+                        <Button mode="contained" onPress={() => handleWicketPress(false)} style={[styles.greenBtn, { backgroundColor: theme.colors.error }]}>Wicket</Button>
                         <Button mode="contained" onPress={() => setShowRetireModal(true)} style={styles.greenBtn}>Retire</Button>
                         <Button mode="contained" onPress={swapStrike} style={styles.greenBtn}>Swap Batsman</Button>
                     </View>
@@ -367,8 +440,17 @@ const ScoringScreen = ({ navigation }) => {
                 <View style={styles.bottomSection}>
                     <View style={styles.leftActions}>
                         <Button mode="contained" onPress={undoBall} style={styles.sideBtn}>Undo</Button>
-                        <Button mode="contained" onPress={() => { }} style={styles.sideBtn}>Partnerships</Button>
-                        <Button mode="contained" onPress={() => navigation.navigate('Scoreboard')} style={styles.sideBtn}>Extras</Button>
+                        <Button mode="contained" onPress={() => {
+                            Alert.alert(
+                                'Finish Innings',
+                                'Are you sure you want to finish this innings?',
+                                [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    { text: 'Finish', onPress: declareInnings, style: 'destructive' }
+                                ]
+                            );
+                        }} style={styles.sideBtn} labelStyle={{ fontSize: 13 }}>Innings Finish</Button>
+                        <Button mode="contained" onPress={() => handleWicketPress(true)} style={[styles.sideBtn, { backgroundColor: theme.colors.error }]}>Run Out</Button>
                     </View>
                     <View style={styles.runGridContainer}>
                         {[0, 1, 2, 3, 4, 5, 6].map((run) => (
@@ -376,8 +458,8 @@ const ScoringScreen = ({ navigation }) => {
                                 <Text style={[styles.runText, (run === 4 || run === 6) && { color: '#4C8C4A' }]}>{run}</Text>
                             </TouchableOpacity>
                         ))}
-                        <TouchableOpacity style={styles.runCircle}>
-                            <Text style={styles.runText}>...</Text>
+                        <TouchableOpacity style={styles.runCircle} onPress={() => navigation.navigate('Scoreboard')}>
+                            <LayoutList size={24} color="#4C8C4A" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -437,10 +519,13 @@ const styles = StyleSheet.create({
     runGridContainer: { width: '70%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', backgroundColor: 'white', borderRadius: 12, padding: 10, marginLeft: 10, elevation: 3 },
     runCircle: { width: 45, height: 45, borderRadius: 25, borderWidth: 1.5, borderColor: '#4C8C4A', justifyContent: 'center', alignItems: 'center', margin: 8 },
     runText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    modalInput: { marginBottom: 12 },
-    boxDialog: { borderRadius: 0, backgroundColor: 'white', borderLeftWidth: 5, borderLeftColor: '#4C8C4A', position: 'absolute', top: 0, margin: 0, width: '100%', alignSelf: 'center' },
-    boxTitle: { fontWeight: 'bold', color: '#1B4D3E' },
+    modalInput: { marginBottom: 16, backgroundColor: 'white' },
+    boxDialog: { borderRadius: 12, backgroundColor: 'white', borderLeftWidth: 6, borderLeftColor: '#4C8C4A', position: 'absolute', top: 0, margin: 0, width: '100%', alignSelf: 'center', elevation: 10 },
+    boxTitle: { fontWeight: 'bold', color: '#1B4D3E', fontSize: 20 },
     boxActionText: { fontWeight: 'bold', color: '#4C8C4A' },
+    formLabel: { marginBottom: 8, color: '#444', fontWeight: '600' },
+    choiceGroup: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+    choiceBtn: { borderRadius: 8, borderColor: '#ccc', borderWidth: 1 },
     resultCard: {
         marginBottom: 15,
         borderRadius: 0,

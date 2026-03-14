@@ -4,7 +4,9 @@
   "description": "",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "repository": {
     "type": "git",
@@ -25,6 +27,7 @@
     "expo": "~54.0.0",
     "expo-asset": "~12.0.12",
     "expo-font": "~14.0.11",
+    "expo-image-picker": "~17.0.10",
     "expo-print": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-sqlite": "~16.0.10",

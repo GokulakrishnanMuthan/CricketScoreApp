@@ -203,6 +203,20 @@ const ScoreboardScreen = ({ navigation }) => {
                             </View>
                         </>
                     )}
+
+                    {(data.overHistory?.length || 0) > 0 && (
+                        <View style={{ marginTop: 15 }}>
+                            <Divider style={{ marginBottom: 15 }} />
+                            <Title style={styles.innerTitle}>Over-wise Runs</Title>
+                            <View style={{ padding: 12, backgroundColor: '#EDF1F0', borderRadius: 8 }}>
+                                {data.overHistory.map((overData, idx) => (
+                                    <Text key={idx} style={{ fontSize: 16, color: '#333', marginBottom: 6, fontWeight: '500' }}>
+                                        Over {idx + 1}: {overData.balls?.join(' ') || ''}
+                                    </Text>
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </Card.Content>
             </Card>
         );
@@ -210,9 +224,6 @@ const ScoreboardScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text variant="headlineMedium" style={styles.headerTitle}>Match Summary</Text>
-            </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Main Result Card */}
@@ -306,6 +317,12 @@ const styles = StyleSheet.create({
     fowItem: { width: '33%', marginBottom: 10, paddingRight: 10 },
     fowName: { fontSize: 13, fontWeight: 'bold', color: '#333' },
     fowScore: { fontSize: 12, color: '#666' },
+    overHistoryBox: { alignItems: 'center', backgroundColor: '#EDF1F0', padding: 10, borderRadius: 8, marginRight: 10, minWidth: 70 },
+    overHistoryLabel: { fontSize: 12, color: '#666', marginBottom: 6, fontWeight: 'bold' },
+    ballsContainer: { flexDirection: 'row', marginBottom: 6 },
+    smallBall: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#9e9e9e', justifyContent: 'center', alignItems: 'center', marginHorizontal: 2 },
+    smallBallText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+    overHistoryRuns: { fontSize: 14, fontWeight: 'bold', color: '#1B4D3E' },
     footerActions: { marginTop: 10, marginBottom: 30 },
     actionBtn: { marginBottom: 12, borderRadius: 8 },
 });

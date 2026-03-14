@@ -8,6 +8,7 @@ const CreateMatchScreen = ({ navigation }) => {
     const [teamA, setTeamA] = useState('');
     const [teamB, setTeamB] = useState('');
     const [overs, setOvers] = useState('10');
+    const [playersPerTeam, setPlayersPerTeam] = useState('11');
     const [tossWinner, setTossWinner] = useState('teamA');
     const [tossDecision, setTossDecision] = useState('bat');
     const { startMatch } = useMatch();
@@ -19,6 +20,7 @@ const CreateMatchScreen = ({ navigation }) => {
             teamA,
             teamB,
             overs: parseInt(overs),
+            playersPerTeam: parseInt(playersPerTeam),
             tossWinner: tossWinner === 'teamA' ? teamA : teamB,
             tossDecision,
         };
@@ -37,12 +39,17 @@ const CreateMatchScreen = ({ navigation }) => {
         <ScrollView style={styles.container}>
             <Card style={styles.card}>
                 <Card.Content>
-                    <Title>Match Setup</Title>
+                    <Text style={styles.title}>Match Setup</Text>
+                    
                     <TextInput
                         label="Team A Name"
                         value={teamA}
                         onChangeText={setTeamA}
                         mode="outlined"
+                        autoFocus={true}
+                        outlineColor="#e0e0e0"
+                        activeOutlineColor="#4C8C4A"
+                        outlineStyle={{ borderRadius: 12 }}
                         style={styles.input}
                     />
                     <TextInput
@@ -50,30 +57,74 @@ const CreateMatchScreen = ({ navigation }) => {
                         value={teamB}
                         onChangeText={setTeamB}
                         mode="outlined"
+                        outlineColor="#e0e0e0"
+                        activeOutlineColor="#4C8C4A"
+                        outlineStyle={{ borderRadius: 12 }}
                         style={styles.input}
                     />
-                    <TextInput
-                        label="Total Overs"
-                        value={overs}
-                        onChangeText={setOvers}
-                        keyboardType="numeric"
-                        mode="outlined"
-                        style={styles.input}
-                    />
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                        <TextInput
+                            label="Overs"
+                            value={overs}
+                            onChangeText={setOvers}
+                            keyboardType="numeric"
+                            mode="outlined"
+                            outlineColor="#e0e0e0"
+                            activeOutlineColor="#4C8C4A"
+                            outlineStyle={{ borderRadius: 12 }}
+                            style={[styles.input, { flex: 1 }]}
+                        />
+                        <TextInput
+                            label="Players"
+                            value={playersPerTeam}
+                            onChangeText={setPlayersPerTeam}
+                            keyboardType="numeric"
+                            mode="outlined"
+                            outlineColor="#e0e0e0"
+                            activeOutlineColor="#4C8C4A"
+                            outlineStyle={{ borderRadius: 12 }}
+                            style={[styles.input, { flex: 1 }]}
+                        />
+                    </View>
 
-                    <Text variant="titleMedium" style={styles.label}>Toss Winner</Text>
+                    <Text style={styles.label}>Toss Winner</Text>
                     <RadioButton.Group onValueChange={value => setTossWinner(value)} value={tossWinner}>
                         <View style={styles.radioRow}>
-                            <RadioButton.Item label={teamA || "Team A"} value="teamA" />
-                            <RadioButton.Item label={teamB || "Team B"} value="teamB" />
+                            <RadioButton.Item 
+                                label={teamA || "Team A"} 
+                                value="teamA" 
+                                style={styles.radioItem} 
+                                labelStyle={{fontSize: 14}}
+                                color="#4C8C4A"
+                            />
+                            <RadioButton.Item 
+                                label={teamB || "Team B"} 
+                                value="teamB" 
+                                style={styles.radioItem} 
+                                labelStyle={{fontSize: 14}}
+                                color="#4C8C4A"
+                            />
                         </View>
                     </RadioButton.Group>
 
-                    <Text variant="titleMedium" style={styles.label}>Decision</Text>
+                    <Text style={styles.label}>Decision</Text>
                     <RadioButton.Group onValueChange={value => setTossDecision(value)} value={tossDecision}>
                         <View style={styles.radioRow}>
-                            <RadioButton.Item label="Bat" value="bat" />
-                            <RadioButton.Item label="Bowl" value="bowl" />
+                            <RadioButton.Item 
+                                label="Batting" 
+                                value="bat" 
+                                style={styles.radioItem} 
+                                labelStyle={{fontSize: 14}}
+                                color="#4C8C4A"
+                            />
+                            <RadioButton.Item 
+                                label="Bowling" 
+                                value="bowl" 
+                                style={styles.radioItem} 
+                                labelStyle={{fontSize: 14}}
+                                color="#4C8C4A"
+                            />
                         </View>
                     </RadioButton.Group>
 
@@ -81,7 +132,8 @@ const CreateMatchScreen = ({ navigation }) => {
                         mode="contained"
                         onPress={handleStartMatch}
                         style={styles.button}
-                        contentStyle={{ height: 50 }}
+                        contentStyle={{ height: 52 }}
+                        labelStyle={{ fontSize: 16, fontWeight: '700' }}
                     >
                         Start Match
                     </Button>
@@ -92,12 +144,53 @@ const CreateMatchScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-    card: { padding: 8, elevation: 4, borderRadius: 0 },
-    input: { marginBottom: 16 },
-    label: { marginTop: 8, marginBottom: 4 },
-    radioRow: { flexDirection: 'row', justifyContent: 'space-around' },
-    button: { marginTop: 24, backgroundColor: '#1B4D3E', borderRadius: 0 },
+    container: { flex: 1, backgroundColor: '#F8FAF9' },
+    card: { 
+        margin: 16, 
+        padding: 8, 
+        elevation: 6, 
+        borderRadius: 20, 
+        backgroundColor: 'white',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+    },
+    title: { 
+        fontSize: 24, 
+        fontWeight: '800', 
+        color: '#1B4D3E', 
+        marginBottom: 20, 
+        textAlign: 'center' 
+    },
+    input: { 
+        marginBottom: 16, 
+        backgroundColor: 'white' 
+    },
+    label: { 
+        marginTop: 12, 
+        marginBottom: 8, 
+        fontWeight: '700', 
+        color: '#444',
+        fontSize: 14,
+    },
+    radioRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between',
+        backgroundColor: '#F0F4F1',
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 16,
+    },
+    radioItem: {
+        flex: 1,
+    },
+    button: { 
+        marginTop: 24, 
+        backgroundColor: '#4C8C4A', 
+        borderRadius: 12,
+        elevation: 4,
+    },
 });
 
 export default CreateMatchScreen;

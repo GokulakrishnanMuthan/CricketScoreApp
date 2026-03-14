@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button } from 'react-native-paper';
-import { Play, Plus, History, Trophy, TrendingUp, Settings } from 'lucide-react-native';
-import { getRecentMatches, clearAllData } from '../database/database';
+import { Play, Plus, History, Trophy, TrendingUp, Settings, Trash2, User } from 'lucide-react-native';
+import { getRecentMatches, clearAllData, deleteMatch } from '../database/database';
 import { useMatch } from '../context/MatchContext';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -44,6 +44,28 @@ const HomeScreen = ({ navigation }) => {
                         } catch (error) {
                             console.error('Failed to clear data:', error);
                             Alert.alert('Error', 'Failed to clear data.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDeleteMatch = (matchId) => {
+        Alert.alert(
+            'Delete Match',
+            'Are you sure you want to delete this match?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteMatch(matchId);
+                            loadMatches();
+                        } catch (error) {
+                            console.error('Failed to delete match:', error);
                         }
                     }
                 }
@@ -107,8 +129,7 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.section}>
                     <View style={styles.actionGrid}>
                         <QuickAction icon={Plus} label="New Match" color="#4C8C4A" onPress={() => navigation.navigate('CreateMatch')} />
-                        <QuickAction icon={History} label="My Matches" color="#FF8C00" onPress={() => { }} />
-                        <QuickAction icon={TrendingUp} label="Stats" color="#2196F3" onPress={() => { }} />
+                        <QuickAction icon={User} label="Players" color="#2196F3" onPress={() => navigation.navigate('Players')} />
                         <QuickAction icon={Settings} label="Clear Data" color="#757575" onPress={handleClearData} />
                     </View>
                 </View>
@@ -117,7 +138,7 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Title style={styles.sectionTitle}>Recent Matches</Title>
-                        <TouchableOpacity><Text style={{ color: '#4C8C4A' }}>See All</Text></TouchableOpacity>
+                        <TouchableOpacity><Text style={{ color: '#4C8C4A', fontWeight: 'bold' }}>See All</Text></TouchableOpacity>
                     </View>
 
                     {matches.length === 0 ? (
@@ -131,9 +152,12 @@ const HomeScreen = ({ navigation }) => {
                     ) : (
                         matches.map((item) => (
                             <Card key={item.id} style={styles.matchCard} onPress={() => handleResumeMatch(item)}>
-                                <Card.Content>
+                                <Card.Content style={{ padding: 16 }}>
                                     <View style={styles.matchTop}>
-                                        <Text variant="labelSmall" style={styles.matchDate}>{item.date}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                                            <Text variant="labelSmall" style={styles.matchDate}>{item.date}</Text>
+                                        </View>
                                         <View style={[styles.statusBadge, { backgroundColor: item.status === 'LIVE' ? '#E8F5E9' : '#F5F5F5' }]}>
                                             <Text style={[styles.statusText, { color: item.status === 'LIVE' ? '#4C8C4A' : '#757575' }]}>{item.status}</Text>
                                         </View>
@@ -141,15 +165,25 @@ const HomeScreen = ({ navigation }) => {
                                     <View style={styles.matchMain}>
                                         <View style={styles.teamInfo}>
                                             <Text style={styles.teamName}>{item.teamA}</Text>
-                                            <Text style={styles.vs}>vs</Text>
+                                            <Text style={styles.vs}>v/s</Text>
                                             <Text style={styles.teamName}>{item.teamB}</Text>
                                         </View>
-                                        <TouchableRipple onPress={() => handleResumeMatch(item)} style={styles.resumeBtn}>
-                                            <Play size={20} color="white" fill="white" />
-                                        </TouchableRipple>
+                                        <TouchableOpacity onPress={() => handleResumeMatch(item)} style={styles.resumeBtn}>
+                                            <Play size={24} color="white" fill="white" />
+                                        </TouchableOpacity>
                                     </View>
-                                    <Divider style={{ marginVertical: 8 }} />
-                                    <Paragraph style={{ fontSize: 12, color: '#666' }}>{item.overs} Overs Match • {item.tossWinner} won toss & elected to {item.tossDecision}</Paragraph>
+
+                                    <Divider style={{ marginVertical: 12, backgroundColor: '#eee' }} />
+                                    
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={{ flex: 1, fontSize: 12, color: '#777', fontWeight: '500' }}>
+                                            {item.overs} Overs • {item.tossWinner} chose to {item.tossDecision}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => handleDeleteMatch(item.id)} style={{ padding: 8 }}>
+                                            <Trash2 size={20} color="#EF5350" />
+                                        </TouchableOpacity>
+                                    </View>
+
                                 </Card.Content>
                             </Card>
                         ))
@@ -163,30 +197,29 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F7F6' },
-    hero: { padding: 24, paddingTop: 48, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    container: { flex: 1, backgroundColor: '#F8FAF9' },
+    hero: { padding: 24, paddingTop: 48, backgroundColor: '#1B4D3E' },
     heroTitle: { color: 'white', fontSize: 28, fontWeight: 'bold' },
     heroSubtitle: { color: '#B0C4B1', fontSize: 16 },
-    section: { padding: 16 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    sectionTitle: { fontSize: 18, color: '#333' },
-    actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    actionCard: { width: '47%', marginBottom: 16, borderRadius: 0, overflow: 'hidden', elevation: 2, backgroundColor: 'white' },
-    actionContent: { height: 100, justifyContent: 'center', alignItems: 'center' },
+    section: { paddingHorizontal: 16, paddingTop: 16 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1B4D3E' },
+    actionGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+    actionCard: { flex: 1, borderRadius: 16, overflow: 'hidden', elevation: 3, backgroundColor: 'white' },
+    actionContent: { height: 90, justifyContent: 'center', alignItems: 'center' },
     actionInner: { alignItems: 'center', justifyContent: 'center' },
-    actionLabel: { marginTop: 8, fontWeight: 'bold', color: '#444' },
-    matchCard: { marginBottom: 12, borderRadius: 0, elevation: 2, backgroundColor: 'white' },
-    matchTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    matchDate: { color: '#888' },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-    statusText: { fontSize: 10, fontWeight: 'bold' },
-    matchMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    teamInfo: { flex: 1, flexDirection: 'column' },
-    teamName: { fontSize: 17, fontWeight: 'bold', color: '#1B4D3E' },
-    vs: { fontSize: 12, color: '#999', marginVertical: 2 },
-    resumeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#4C8C4A', justifyContent: 'center', alignItems: 'center' },
-    fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, borderRadius: 0 },
-    emptyCard: { padding: 32, borderRadius: 0, borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', backgroundColor: 'transparent' },
+    actionLabel: { marginTop: 8, fontSize: 13, fontWeight: '700', color: '#333' },
+    matchCard: { marginBottom: 12, borderRadius: 16, elevation: 4, backgroundColor: 'white', overflow: 'hidden', borderLeftWidth: 4, borderLeftColor: '#4C8C4A' },
+    matchTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    matchDate: { color: '#888', fontSize: 11, fontWeight: '600' },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+    statusText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 0.5 },
+    matchMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+    teamInfo: { flex: 1 },
+    teamName: { fontSize: 18, fontWeight: '800', color: '#1B4D3E', letterSpacing: -0.5 },
+    vs: { fontSize: 11, color: '#999', marginVertical: 1, fontWeight: 'bold', textTransform: 'uppercase' },
+    resumeBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#4C8C4A', justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    emptyCard: { padding: 32, borderRadius: 16, borderStyle: 'dashed', borderWidth: 1.5, borderColor: '#4C8C4A', backgroundColor: '#F0F4F1' },
     centered: { alignItems: 'center', justifyContent: 'center' },
 });
 
