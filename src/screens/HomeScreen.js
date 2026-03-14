@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button } from 'react-native-paper';
+import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button, Portal, Dialog } from 'react-native-paper';
 import { Play, Plus, History, Trophy, TrendingUp, Settings, Trash2, User } from 'lucide-react-native';
 import { getRecentMatches, clearAllData, deleteMatch } from '../database/database';
 import { useMatch } from '../context/MatchContext';
@@ -11,6 +11,8 @@ const HomeScreen = ({ navigation }) => {
     const isFocused = useIsFocused();
     const { resumeMatch } = useMatch();
     const [matches, setMatches] = useState([]);
+    const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
     useEffect(() => {
         if (isFocused) {
@@ -52,25 +54,19 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const handleDeleteMatch = (matchId) => {
-        Alert.alert(
-            'Delete Match',
-            'Are you sure you want to delete this match?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await deleteMatch(matchId);
-                            loadMatches();
-                        } catch (error) {
-                            console.error('Failed to delete match:', error);
-                        }
-                    }
-                }
-            ]
-        );
+        setPendingDeleteId(matchId);
+        setDeleteDialogVisible(true);
+    };
+
+    const confirmDelete = async () => {
+        setDeleteDialogVisible(false);
+        try {
+            await deleteMatch(pendingDeleteId);
+            loadMatches();
+        } catch (error) {
+            console.error('Failed to delete match:', error);
+        }
+        setPendingDeleteId(null);
     };
 
     const handleResumeMatch = (match) => {
@@ -122,6 +118,43 @@ const HomeScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            {/* ── Delete Confirmation Dialog ── */}
+            <Portal>
+                <Dialog
+                    visible={deleteDialogVisible}
+                    onDismiss={() => setDeleteDialogVisible(false)}
+                    style={styles.deleteDialog}
+                >
+                    <View style={styles.deleteDialogIcon}>
+                        <Trash2 size={32} color="#EF5350" />
+                    </View>
+                    <Dialog.Title style={styles.deleteDialogTitle}>Delete Match?</Dialog.Title>
+                    <Dialog.Content>
+                        <Text style={styles.deleteDialogBody}>
+                            This match and all its scoring data will be permanently removed.
+                        </Text>
+                    </Dialog.Content>
+                    <Dialog.Actions style={styles.deleteDialogActions}>
+                        <Button
+                            mode="outlined"
+                            onPress={() => setDeleteDialogVisible(false)}
+                            style={styles.cancelBtn}
+                            labelStyle={styles.cancelBtnLabel}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            mode="contained"
+                            onPress={confirmDelete}
+                            buttonColor="#EF5350"
+                            style={styles.deleteBtn}
+                            labelStyle={styles.deleteBtnLabel}
+                        >
+                            Delete
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
             <ScrollView showsVerticalScrollIndicator={false}>
 
 
@@ -130,7 +163,7 @@ const HomeScreen = ({ navigation }) => {
                     <View style={styles.actionGrid}>
                         <QuickAction icon={Plus} label="New Match" color="#4C8C4A" onPress={() => navigation.navigate('CreateMatch')} />
                         <QuickAction icon={User} label="Players" color="#2196F3" onPress={() => navigation.navigate('Players')} />
-                        <QuickAction icon={Settings} label="Clear Data" color="#757575" onPress={handleClearData} />
+                        <QuickAction icon={Settings} label="Settings" color="#757575" onPress={() => navigation.navigate('Settings')} />
                     </View>
                 </View>
 
@@ -221,6 +254,55 @@ const styles = StyleSheet.create({
     resumeBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#4C8C4A', justifyContent: 'center', alignItems: 'center', elevation: 4 },
     emptyCard: { padding: 32, borderRadius: 16, borderStyle: 'dashed', borderWidth: 1.5, borderColor: '#4C8C4A', backgroundColor: '#F0F4F1' },
     centered: { alignItems: 'center', justifyContent: 'center' },
+
+    // Delete dialog
+    deleteDialog: {
+        borderRadius: 20,
+        backgroundColor: 'white',
+        paddingTop: 8,
+        overflow: 'hidden',
+        borderTopWidth: 5,
+        borderTopColor: '#EF5350',
+    },
+    deleteDialogIcon: {
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 4,
+    },
+    deleteDialogTitle: {
+        textAlign: 'center',
+        fontWeight: '800',
+        fontSize: 20,
+        color: '#1B4D3E',
+    },
+    deleteDialogBody: {
+        textAlign: 'center',
+        color: '#666',
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    deleteDialogActions: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        gap: 10,
+    },
+    cancelBtn: {
+        flex: 1,
+        borderRadius: 10,
+        borderColor: '#4C8C4A',
+    },
+    cancelBtnLabel: {
+        color: '#4C8C4A',
+        fontWeight: '700',
+    },
+    deleteBtn: {
+        flex: 1,
+        borderRadius: 10,
+    },
+    deleteBtnLabel: {
+        color: 'white',
+        fontWeight: '700',
+    },
 });
 
 export default HomeScreen;

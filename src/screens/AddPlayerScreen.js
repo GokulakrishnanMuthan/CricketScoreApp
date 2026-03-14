@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, IconButton, Portal, Dialog, useTheme, Avatar } from 'react-native-paper';
 import { User, Plus, Camera, Instagram, Facebook, Phone, Contact, Hash, ChevronDown, Save } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,15 +9,40 @@ const AddPlayerScreen = ({ navigation, route }) => {
     const theme = useTheme();
     const editingPlayer = route.params?.player || null;
 
+    const getHandle = (url, prefix = '') => {
+        if (!url) return '';
+
+        // If user entered only username (ex: prakash9047 or @prakash9047)
+        if (!url.startsWith('http')) {
+            return prefix + url.replace(/^@/, '');
+        }
+
+        try {
+            // Remove query parameters
+            const cleanUrl = url.split('?')[0];
+
+            // Split URL
+            const parts = cleanUrl.split('/').filter(Boolean);
+
+            // Get last part (username)
+            const username = parts[parts.length - 1];
+
+            return prefix + username;
+        } catch (error) {
+            return prefix + url;
+        }
+    };
+
     const [name, setName] = useState(editingPlayer?.name || '');
     const [jersey, setJersey] = useState(editingPlayer?.jersey_number || '');
     const [role, setRole] = useState(editingPlayer?.role || 'All-Rounder');
     const [battingStyle, setBattingStyle] = useState(editingPlayer?.batting_style || 'Right Hand');
     const [bowlingStyle, setBowlingStyle] = useState(editingPlayer?.bowling_style || 'Right Arm Medium');
     const [isWK, setIsWK] = useState(editingPlayer?.is_wicket_keeper === 1);
+    const [isCaptain, setIsCaptain] = useState(editingPlayer?.is_captain === 1);
     const [phone, setPhone] = useState(editingPlayer?.phone || '');
-    const [insta, setInsta] = useState(editingPlayer?.insta_id || '');
-    const [fb, setFb] = useState(editingPlayer?.fb_id || '');
+    const [insta, setInsta] = useState(getHandle(editingPlayer?.insta_id) || '');
+    const [fb, setFb] = useState(getHandle(editingPlayer?.fb_id) || '');
     const [image, setImage] = useState(editingPlayer?.image_uri || null);
 
     const [roleVisible, setRoleVisible] = useState(false);
@@ -44,14 +69,35 @@ const AddPlayerScreen = ({ navigation, route }) => {
         }
     };
 
+    const normalizeSocialLink = (input, platform) => {
+        if (!input) return '';
+        const trimmed = input.trim();
+        if (trimmed.startsWith('http')) return trimmed;
+        
+        // Remove @ if it exists at the start for handles
+        const handle = trimmed.startsWith('@') ? trimmed.substring(1) : trimmed;
+        
+        if (platform === 'instagram') {
+            return `https://instagram.com/${handle}`;
+        } else if (platform === 'facebook') {
+            // Check if it's already a path or just a handle
+            if (handle.includes('/')) return `https://facebook.com/${handle}`;
+            return `https://facebook.com/${handle}`;
+        }
+        return handle;
+    };
+
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Player name is required');
 
+        const normalizedInsta = normalizeSocialLink(insta, 'instagram');
+        const normalizedFb = normalizeSocialLink(fb, 'facebook');
+
         try {
             if (editingPlayer) {
-                await updateAppPlayer(editingPlayer.id, name, jersey, role, phone, image, insta, battingStyle, bowlingStyle, isWK, fb);
+                await updateAppPlayer(editingPlayer.id, name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain);
             } else {
-                await addAppPlayer(name, jersey, role, phone, image, insta, battingStyle, bowlingStyle, isWK, fb);
+                await addAppPlayer(name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain);
             }
             navigation.goBack();
         } catch (error) {
@@ -96,7 +142,12 @@ const AddPlayerScreen = ({ navigation, route }) => {
     );
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+        <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.imageSection}>
                 <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
                     {image ? (
@@ -162,17 +213,29 @@ const AddPlayerScreen = ({ navigation, route }) => {
                     onSelect={setBowlingStyle} 
                 />
 
-                <View style={styles.switchContainer}>
-                    <View>
-                        <Text style={styles.label}>Wicket Keeper</Text>
-                        <Text style={styles.subLabel}>Is this player a specialist WK?</Text>
+                <View style={styles.togglesRow}>
+                    <View style={styles.switchContainer}>
+                        <View>
+                            <Text style={styles.toggleLabel}>Captain</Text>
+                        </View>
+                        <Switch
+                            value={isCaptain}
+                            onValueChange={setIsCaptain}
+                            trackColor={{ false: '#ddd', true: '#A5D6A7' }}
+                            thumbColor={isCaptain ? '#4C8C4A' : '#f4f3f4'}
+                        />
                     </View>
-                    <Switch
-                        value={isWK}
-                        onValueChange={setIsWK}
-                        trackColor={{ false: '#ddd', true: '#A5D6A7' }}
-                        thumbColor={isWK ? '#4C8C4A' : '#f4f3f4'}
-                    />
+                    <View style={styles.switchContainer}>
+                        <View>
+                            <Text style={styles.toggleLabel}>Wicket Keeper</Text>
+                        </View>
+                        <Switch
+                            value={isWK}
+                            onValueChange={setIsWK}
+                            trackColor={{ false: '#ddd', true: '#A5D6A7' }}
+                            thumbColor={isWK ? '#4C8C4A' : '#f4f3f4'}
+                        />
+                    </View>
                 </View>
 
                 <TextInput
@@ -223,6 +286,7 @@ const AddPlayerScreen = ({ navigation, route }) => {
             </Button>
             <View style={{ height: 40 }} />
         </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -239,6 +303,7 @@ const styles = StyleSheet.create({
     input: { backgroundColor: 'white' },
     label: { fontSize: 14, fontWeight: '600', color: '#1B4D3E', marginBottom: 8 },
     subLabel: { fontSize: 12, color: '#666' },
+    toggleLabel: { fontSize: 14, fontWeight: '700', color: '#1B4D3E' },
     dropdownContainer: { marginBottom: 4 },
     dropdown: { 
         height: 56, 
@@ -252,12 +317,18 @@ const styles = StyleSheet.create({
         backgroundColor: 'white'
     },
     dropdownText: { fontSize: 16, color: '#333' },
+    togglesRow: {
+        flexDirection: 'row',
+        gap: 12,
+        justifyContent: 'space-between'
+    },
     switchContainer: { 
+        flex: 1,
         flexDirection: 'row', 
         justifyContent: 'space-between', 
         alignItems: 'center',
         backgroundColor: 'white',
-        padding: 16,
+        padding: 12,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: '#eee'

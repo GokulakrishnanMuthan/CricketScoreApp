@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, FlatList, Linking } from 'react-native';
 import { Button, Card, Text, useTheme, Avatar } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { User, Plus, Trash2, Hash, Phone, Contact, Edit2, Instagram, Facebook, Shield } from 'lucide-react-native';
+import { User, Plus, Trash2, Hash, Phone, Contact, Edit2, Instagram, Facebook, Shield, Star, BarChart2 } from 'lucide-react-native';
 import { getAppPlayers, deleteAppPlayer } from '../database/database';
 
 const PlayersScreen = ({ navigation }) => {
@@ -52,6 +52,44 @@ const PlayersScreen = ({ navigation }) => {
         );
     };
 
+    const openLink = async (url) => {
+        if (!url) return;
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert('Error', "Don't know how to open this URL: " + url);
+            }
+        } catch (error) {
+            console.error('An error occurred', error);
+        }
+    };
+
+    const getHandle = (url, prefix = '@') => {
+        if (!url) return '';
+
+        // If user entered only username (ex: prakash9047 or @prakash9047)
+        if (!url.startsWith('http')) {
+            return prefix + url.replace(/^@/, '');
+        }
+
+        try {
+            // Remove query parameters
+            const cleanUrl = url.split('?')[0];
+
+            // Split URL
+            const parts = cleanUrl.split('/').filter(Boolean);
+
+            // Get last part (username)
+            const username = parts[parts.length - 1];
+
+            return prefix + username;
+        } catch (error) {
+            return prefix + url;
+        }
+    };
+
     const renderPlayerItem = ({ item }) => (
         <Card style={styles.playerCard}>
             <View style={styles.cardContent}>
@@ -83,15 +121,29 @@ const PlayersScreen = ({ navigation }) => {
                                 </View>
                             )}
                             {item.insta_id && (
-                                <View style={[styles.badge, { backgroundColor: '#FCE4EC' }]}>
-                                    <Instagram size={12} color="#D81B60" />
-                                    <Text style={[styles.badgeText, { color: '#D81B60' }]}>{item.insta_id}</Text>
-                                </View>
+                                <TouchableOpacity 
+                                    style={[styles.badge, styles.instaBadge]}
+                                    onPress={() => openLink(item.insta_id)}
+                                >
+                                    <View style={styles.instaCircle}>
+                                        <Instagram size={10} color="white" />
+                                    </View>
+                                    <Text style={styles.instaText}>{getHandle(item.insta_id, '@')}</Text>
+                                </TouchableOpacity>
                             )}
                             {item.fb_id && (
-                                <View style={[styles.badge, { backgroundColor: '#E3F2FD' }]}>
-                                    <Facebook size={12} color="#1877F2" />
-                                    <Text style={[styles.badgeText, { color: '#1877F2' }]}>FB</Text>
+                                <TouchableOpacity 
+                                    style={[styles.badge, styles.fbBadge]}
+                                    onPress={() => openLink(item.fb_id)}
+                                >
+                                    <Facebook size={12} color="white" />
+                                    <Text style={styles.fbText}>Facebook</Text>
+                                </TouchableOpacity>
+                            )}
+                            {item.is_captain === 1 && (
+                                <View style={[styles.badge, { backgroundColor: '#FFF9C4' }]}>
+                                    <Star size={12} color="#FBC02D" fill="#FBC02D" />
+                                    <Text style={[styles.badgeText, { color: '#FBC02D' }]}>CAPT</Text>
                                 </View>
                             )}
                             {item.is_wicket_keeper === 1 && (
@@ -109,6 +161,9 @@ const PlayersScreen = ({ navigation }) => {
                     </View>
                 </View>
                 <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity onPress={() => navigation.navigate('PlayerStats', { player: item })} style={styles.statsBtn}>
+                        <BarChart2 size={20} color="#1565C0" />
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
                         <Edit2 size={20} color="#4C8C4A" />
                     </TouchableOpacity>
@@ -165,8 +220,33 @@ const styles = StyleSheet.create({
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F4F1', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     badgeText: { fontSize: 12, color: '#666', marginLeft: 3, fontWeight: 'bold' },
+    instaBadge: { 
+        backgroundColor: '#E1306C', 
+        paddingLeft: 4, 
+        paddingRight: 10,
+        height: 24,
+        borderRadius: 12
+    },
+    instaCircle: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 4
+    },
+    instaText: { color: 'white', fontSize: 11, fontWeight: '800' },
+    fbBadge: { 
+        backgroundColor: '#1877F2', 
+        paddingHorizontal: 8,
+        height: 24,
+        borderRadius: 12
+    },
+    fbText: { color: 'white', fontSize: 11, fontWeight: '800', marginLeft: 4 },
+    statsBtn: { padding: 8 },
     deleteBtn: { padding: 8, marginLeft: 8 },
-    editBtn: { padding: 8 },
+    editBtn: { padding: 8, marginLeft: 4 },
     fab: {
         position: 'absolute',
         right: 20,

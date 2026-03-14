@@ -13,6 +13,8 @@ import ScoringScreen from './src/screens/ScoringScreen';
 import ScoreboardScreen from './src/screens/ScoreboardScreen';
 import PlayersScreen from './src/screens/PlayersScreen';
 import AddPlayerScreen from './src/screens/AddPlayerScreen';
+import PlayerStatsScreen from './src/screens/PlayerStatsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { DefaultTheme } from '@react-navigation/native';
 
 const Stack = createStackNavigator();
@@ -58,6 +60,8 @@ export default function App() {
                             <Stack.Screen name="Scoreboard" component={ScoreboardScreen} options={{ title: 'Match Scoreboard' }} />
                             <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Players' }} />
                             <Stack.Screen name="AddPlayer" component={AddPlayerScreen} options={({ route }) => ({ title: route.params?.player ? 'Edit Player' : 'Add New Player' })} />
+                            <Stack.Screen name="PlayerStats" component={PlayerStatsScreen} options={({ route }) => ({ title: `${route.params?.player?.name || 'Player'} — Stats` })} />
+                            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings & Backup' }} />
                         </Stack.Navigator>
                     </NavigationContainer>
                 </MatchProvider>

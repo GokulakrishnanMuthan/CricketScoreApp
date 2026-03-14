@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Button, Card, Text, Title, IconButton, useTheme, Checkbox, TextInput, Portal, Dialog, Divider, Appbar } from 'react-native-paper';
 import { useMatch } from '../context/MatchContext';
 import { LayoutList } from 'lucide-react-native';
+import PlayerAutoComplete from '../components/PlayerAutoComplete';
 
 const ScoringScreen = ({ navigation }) => {
     const theme = useTheme();
@@ -151,10 +152,29 @@ const ScoringScreen = ({ navigation }) => {
                 {/* Match Start Modal */}
                 <Dialog visible={showStartModal} dismissable={false} style={styles.boxDialog}>
                     <Dialog.Title style={styles.boxTitle}>Select Starting Players</Dialog.Title>
-                    <Dialog.Content>
-                        <TextInput autoFocus label="Striker Name" value={initPlayers.striker} onChangeText={t => setInitPlayers({ ...initPlayers, striker: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
-                        <TextInput label="Non-Striker Name" value={initPlayers.nonStriker} onChangeText={t => setInitPlayers({ ...initPlayers, nonStriker: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
-                        <TextInput label="Opening Bowler" value={initPlayers.bowler} onChangeText={t => setInitPlayers({ ...initPlayers, bowler: t })} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                    <Dialog.Content style={{ overflow: 'visible' }}>
+                        <PlayerAutoComplete
+                            label="Striker Name"
+                            value={initPlayers.striker}
+                            onChangeText={t => setInitPlayers({ ...initPlayers, striker: t })}
+                            onSelect={p => setInitPlayers(prev => ({ ...prev, striker: p.name }))}
+                            autoFocus
+                            style={{ zIndex: 30 }}
+                        />
+                        <PlayerAutoComplete
+                            label="Non-Striker Name"
+                            value={initPlayers.nonStriker}
+                            onChangeText={t => setInitPlayers({ ...initPlayers, nonStriker: t })}
+                            onSelect={p => setInitPlayers(prev => ({ ...prev, nonStriker: p.name }))}
+                            style={{ zIndex: 20 }}
+                        />
+                        <PlayerAutoComplete
+                            label="Opening Bowler"
+                            value={initPlayers.bowler}
+                            onChangeText={t => setInitPlayers({ ...initPlayers, bowler: t })}
+                            onSelect={p => setInitPlayers(prev => ({ ...prev, bowler: p.name }))}
+                            style={{ zIndex: 10, marginBottom: 0 }}
+                        />
                     </Dialog.Content>
                     <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
                         <Button mode="contained" buttonColor="#4C8C4A" onPress={submitInitialPlayers} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Start Scoring</Button>
@@ -175,7 +195,7 @@ const ScoringScreen = ({ navigation }) => {
                 {/* New Bowler Modal */}
                 <Dialog visible={showBowlerModal} dismissable={false} style={styles.boxDialog}>
                     <Dialog.Title style={styles.boxTitle}>Over Complete! New Bowler</Dialog.Title>
-                    <Dialog.Content>
+                    <Dialog.Content style={{ overflow: 'visible' }}>
                         {(bowlers?.length || 0) > 0 && (
                             <View style={{ marginBottom: 15 }}>
                                 <Text variant="labelSmall" style={{ marginBottom: 5 }}>Select Previous Bowler:</Text>
@@ -197,7 +217,14 @@ const ScoringScreen = ({ navigation }) => {
                                 <Divider style={{ marginTop: 15 }} />
                             </View>
                         )}
-                        <TextInput autoFocus label="Next Bowler Name" value={nextBowler} onChangeText={setNextBowler} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                        <PlayerAutoComplete
+                            label="Next Bowler Name"
+                            value={nextBowler}
+                            onChangeText={setNextBowler}
+                            onSelect={p => { setNextBowler(p.name); }}
+                            autoFocus
+                            style={{ zIndex: 10, marginBottom: 0 }}
+                        />
                     </Dialog.Content>
                     <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
                         <Button mode="contained" buttonColor="#4C8C4A" onPress={() => submitNewBowler()} style={{ flex: 1, borderRadius: 8 }} labelStyle={{ color: 'white', fontWeight: 'bold' }}>Continue</Button>
@@ -207,9 +234,16 @@ const ScoringScreen = ({ navigation }) => {
                 {/* Retire Modal */}
                 <Dialog visible={showRetireModal} onDismiss={() => setShowRetireModal(false)} style={styles.boxDialog}>
                     <Dialog.Title style={styles.boxTitle}>Retire Batsman</Dialog.Title>
-                    <Dialog.Content>
-                        <Text variant="bodyMedium">Enter name of the new batsman replacing {batsmen?.[0]?.isStriker ? batsmen[0]?.name : batsmen?.[1]?.name}:</Text>
-                        <TextInput autoFocus label="New Batsman Name" value={retireName} onChangeText={setRetireName} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                    <Dialog.Content style={{ overflow: 'visible' }}>
+                        <Text variant="bodyMedium" style={{ marginBottom: 10 }}>Enter name of the new batsman replacing {batsmen?.[0]?.isStriker ? batsmen[0]?.name : batsmen?.[1]?.name}:</Text>
+                        <PlayerAutoComplete
+                            label="New Batsman Name"
+                            value={retireName}
+                            onChangeText={setRetireName}
+                            onSelect={p => setRetireName(p.name)}
+                            autoFocus
+                            style={{ zIndex: 10, marginBottom: 0 }}
+                        />
                     </Dialog.Content>
                     <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
                         <Button mode="outlined" onPress={() => setShowRetireModal(false)} textColor="#d32f2f" style={{ flex: 1, marginRight: 10, borderColor: '#d32f2f', borderRadius: 8 }}>Cancel</Button>
@@ -220,7 +254,7 @@ const ScoringScreen = ({ navigation }) => {
                 {/* Wicket Modal */}
                 <Dialog visible={showWicketModal} onDismiss={() => setShowWicketModal(false)} style={styles.boxDialog}>
                     <Dialog.Title style={styles.boxTitle}>{isRunOut ? 'Run Out Details' : 'Wicket!'}</Dialog.Title>
-                    <Dialog.Content>
+                    <Dialog.Content style={{ overflow: 'visible' }}>
                         {isRunOut && (
                             <View style={{ marginBottom: 20 }}>
                                 <Text variant="labelMedium" style={styles.formLabel}>Runs completed before Run Out:</Text>
@@ -263,8 +297,15 @@ const ScoringScreen = ({ navigation }) => {
                                 </View>
                             </View>
                         )}
-                        <Text variant="bodyMedium">Enter name of the new batsman:</Text>
-                        <TextInput autoFocus label="New Batsman Name" value={newBatsman} onChangeText={setNewBatsman} mode="outlined" activeOutlineColor="#4C8C4A" outlineStyle={{ borderRadius: 8 }} style={styles.modalInput} />
+                        <Text variant="bodyMedium" style={{ marginBottom: 10 }}>Enter name of the new batsman:</Text>
+                        <PlayerAutoComplete
+                            label="New Batsman Name"
+                            value={newBatsman}
+                            onChangeText={setNewBatsman}
+                            onSelect={p => setNewBatsman(p.name)}
+                            autoFocus
+                            style={{ zIndex: 10, marginBottom: 0 }}
+                        />
                     </Dialog.Content>
                     <Dialog.Actions style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
                         <Button mode="outlined" onPress={() => setShowWicketModal(false)} textColor="#d32f2f" style={{ flex: 1, marginRight: 10, borderColor: '#d32f2f', borderRadius: 8 }}>Cancel</Button>

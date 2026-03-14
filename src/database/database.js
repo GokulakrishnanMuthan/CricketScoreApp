@@ -60,7 +60,8 @@ export const initDatabase = async () => {
                     batting_style TEXT,
                     bowling_style TEXT,
                     is_wicket_keeper INTEGER DEFAULT 0,
-                    fb_id TEXT
+                    fb_id TEXT,
+                    is_captain INTEGER DEFAULT 0
                 );
             `);
 
@@ -94,6 +95,12 @@ export const initDatabase = async () => {
                 await db.execAsync("ALTER TABLE app_players ADD COLUMN bowling_style TEXT;");
                 await db.execAsync("ALTER TABLE app_players ADD COLUMN is_wicket_keeper INTEGER DEFAULT 0;");
                 await db.execAsync("ALTER TABLE app_players ADD COLUMN fb_id TEXT;");
+            }
+
+            const playerTableInfoCaptain = await db.getAllAsync("PRAGMA table_info(app_players)");
+            const hasCaptain = playerTableInfoCaptain.some(column => column.name === 'is_captain');
+            if (!hasCaptain) {
+                await db.execAsync("ALTER TABLE app_players ADD COLUMN is_captain INTEGER DEFAULT 0;");
             }
 
             console.log('Database initialized successfully');
@@ -145,11 +152,11 @@ export const deleteMatch = async (matchId) => {
 };
 
 // Player Management
-export const addAppPlayer = async (name, jersey, role, phone, image, insta, batting, bowling, isWK, fb) => {
+export const addAppPlayer = async (name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain) => {
     const database = await getDb();
     const result = await database.runAsync(
-        'INSERT INTO app_players (name, jersey_number, role, phone, image_uri, insta_id, batting_style, bowling_style, is_wicket_keeper, fb_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb]
+        'INSERT INTO app_players (name, jersey_number, role, phone, image_uri, insta_id, batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0]
     );
     return result.lastInsertRowId;
 };
@@ -164,12 +171,91 @@ export const deleteAppPlayer = async (id) => {
     await database.runAsync('DELETE FROM app_players WHERE id = ?', [id]);
 };
 
-export const updateAppPlayer = async (id, name, jersey, role, phone, image, insta, batting, bowling, isWK, fb) => {
+export const updateAppPlayer = async (id, name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain) => {
     const database = await getDb();
     await database.runAsync(
-        'UPDATE app_players SET name = ?, jersey_number = ?, role = ?, phone = ?, image_uri = ?, insta_id = ?, batting_style = ?, bowling_style = ?, is_wicket_keeper = ?, fb_id = ? WHERE id = ?',
-        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, id]
+        'UPDATE app_players SET name = ?, jersey_number = ?, role = ?, phone = ?, image_uri = ?, insta_id = ?, batting_style = ?, bowling_style = ?, is_wicket_keeper = ?, fb_id = ?, is_captain = ? WHERE id = ?',
+        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0, id]
     );
+};
+
+export const getAllMatchStates = async () => {
+    const database = await getDb();
+    return database.getAllAsync(
+        'SELECT id, teamA, teamB, date, status, state_json FROM matches WHERE state_json IS NOT NULL ORDER BY date DESC'
+    );
+};
+
+// ── Backup / Restore ──────────────────────────────────────────────────────────
+
+export const exportAllData = async () => {
+    const database = await getDb();
+    const [players, matches, matchPlayers, balls] = await Promise.all([
+        database.getAllAsync('SELECT * FROM app_players'),
+        database.getAllAsync('SELECT * FROM matches'),
+        database.getAllAsync('SELECT * FROM players'),
+        database.getAllAsync('SELECT * FROM balls'),
+    ]);
+
+    return {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        app: 'CricketScoreApp',
+        data: { players, matches, matchPlayers, balls },
+    };
+};
+
+export const importAllData = async (backup) => {
+    if (
+        !backup ||
+        backup.app !== 'CricketScoreApp' ||
+        !backup.data ||
+        typeof backup.data !== 'object'
+    ) {
+        throw new Error('INVALID_BACKUP');
+    }
+
+    const database = await getDb();
+    const { players = [], matches = [], matchPlayers = [], balls = [] } = backup.data;
+
+    await database.withTransactionAsync(async () => {
+        for (const p of players) {
+            await database.runAsync(
+                `INSERT OR REPLACE INTO app_players
+                    (id, name, jersey_number, role, phone, image_uri, insta_id,
+                     batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [p.id, p.name, p.jersey_number, p.role, p.phone, p.image_uri,
+                 p.insta_id, p.batting_style, p.bowling_style,
+                 p.is_wicket_keeper, p.fb_id, p.is_captain]
+            );
+        }
+        for (const m of matches) {
+            await database.runAsync(
+                `INSERT OR REPLACE INTO matches
+                    (id, teamA, teamB, overs, tossWinner, tossDecision, state_json, date, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [m.id, m.teamA, m.teamB, m.overs, m.tossWinner, m.tossDecision,
+                 m.state_json, m.date, m.status]
+            );
+        }
+        for (const p of matchPlayers) {
+            await database.runAsync(
+                `INSERT OR REPLACE INTO players (id, matchId, name, team) VALUES (?, ?, ?, ?)`,
+                [p.id, p.matchId, p.name, p.team]
+            );
+        }
+        for (const b of balls) {
+            await database.runAsync(
+                `INSERT OR REPLACE INTO balls
+                    (id, matchId, overNum, ballNum, batsmanId, bowlerId, runs,
+                     extraType, extraRuns, isWicket, wicketType, timestamp)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [b.id, b.matchId, b.overNum, b.ballNum, b.batsmanId, b.bowlerId,
+                 b.runs, b.extraType, b.extraRuns, b.isWicket, b.wicketType, b.timestamp]
+            );
+        }
+    });
 };
 
 export const getDb = async () => {
