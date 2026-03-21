@@ -71,8 +71,13 @@ const PlayerAutoComplete = ({
         >
             <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
             {item.jersey_number ? (
-                <View style={styles.jerseyBadge}>
+                <View style={[styles.jerseyBadge, { marginRight: 8 }]}>
                     <Text style={styles.jerseyText}>#{item.jersey_number}</Text>
+                </View>
+            ) : null}
+            {item.team_name ? (
+                <View style={styles.teamBadge}>
+                    <Text style={styles.teamText}>{item.team_name}</Text>
                 </View>
             ) : null}
         </TouchableOpacity>
@@ -183,6 +188,17 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#4C8C4A',
         fontWeight: '700',
+    },
+    teamBadge: {
+        backgroundColor: '#F0F4F1',
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    teamText: {
+        fontSize: 11,
+        color: '#666',
+        fontWeight: '600',
     },
 });
 

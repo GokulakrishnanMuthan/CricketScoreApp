@@ -1,28 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button, Portal, Dialog } from 'react-native-paper';
-import { Play, Plus, History, Trophy, TrendingUp, Settings, Trash2, User } from 'lucide-react-native';
-import { getRecentMatches, clearAllData, deleteMatch } from '../database/database';
+import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button, Portal, Dialog, Menu } from 'react-native-paper';
+import { Play, Plus, History, Trophy, TrendingUp, Settings, Trash2, User, FileText, List, Shield } from 'lucide-react-native';
+import { getRecentMatches, clearAllData, deleteMatch, getOtherTeams } from '../database/database';
 import { useMatch } from '../context/MatchContext';
 import { useIsFocused } from '@react-navigation/native';
 
 const HomeScreen = ({ navigation }) => {
     const theme = useTheme();
     const isFocused = useIsFocused();
-    const { resumeMatch } = useMatch();
+    const { resumeMatch, updateSetupData, resetMatch } = useMatch();
     const [matches, setMatches] = useState([]);
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const [otherTeams, setOtherTeams] = useState([]);
+    const [otherTeamsMenuVisible, setOtherTeamsMenuVisible] = useState(false);
 
     useEffect(() => {
         if (isFocused) {
             loadMatches();
+            loadOtherTeams();
         }
     }, [isFocused]);
 
+    const loadOtherTeams = async () => {
+        try {
+            const teams = await getOtherTeams();
+            setOtherTeams(teams);
+        } catch (error) {
+            console.error('Failed to load other teams:', error);
+        }
+    };
+
     const loadMatches = async () => {
         try {
-            const data = await getRecentMatches();
+            const data = await getRecentMatches(5);
             setMatches(data);
         } catch (error) {
             console.error('Failed to load matches:', error);
@@ -105,6 +117,34 @@ const HomeScreen = ({ navigation }) => {
         }
     };
 
+    const handleStartNextMatch = (item) => {
+        let stateObj = null;
+        if (item.state_json) {
+            try { stateObj = JSON.parse(item.state_json); } catch (e) {}
+        }
+        
+        const teamAData = stateObj?.currentMatch?.teamAData || { name: item.teamA || 'Team A', players: [] };
+        const teamBData = stateObj?.currentMatch?.teamBData || { name: item.teamB || 'Team B', players: [] };
+        const overs = stateObj?.currentMatch?.overs || item.overs || 10;
+        const playersPerTeam = stateObj?.currentMatch?.playersPerTeam || 11;
+        const ground = stateObj?.currentMatch?.ground || '';
+
+        resetMatch();
+
+        setTimeout(() => {
+            updateSetupData({
+                matchType: 'local',
+                teamA: teamAData,
+                teamB: teamBData,
+                overs,
+                playersPerTeam,
+                ground,
+                date: new Date().toLocaleString()
+            });
+            navigation.navigate('TeamSetup');
+        }, 0);
+    };
+
     const QuickAction = ({ icon: Icon, label, color, onPress }) => (
         <Card style={[styles.actionCard, { borderBottomColor: color, borderBottomWidth: 3 }]}>
             <TouchableRipple onPress={onPress} style={styles.actionContent}>
@@ -160,10 +200,47 @@ const HomeScreen = ({ navigation }) => {
 
                 {/* Quick Actions Grid */}
                 <View style={styles.section}>
-                    <View style={styles.actionGrid}>
-                        <QuickAction icon={Plus} label="New Match" color="#4C8C4A" onPress={() => navigation.navigate('CreateMatch')} />
-                        <QuickAction icon={User} label="Players" color="#2196F3" onPress={() => navigation.navigate('Players')} />
-                        <QuickAction icon={Settings} label="Settings" color="#757575" onPress={() => navigation.navigate('Settings')} />
+                    <View style={[styles.actionGrid, { flexWrap: 'wrap' }]}>
+                        <View style={{ width: '48%', marginBottom: 12 }}>
+                            <QuickAction icon={Plus} label="New Match" color="#4C8C4A" onPress={() => navigation.navigate('MatchType')} />
+                        </View>
+                        <View style={{ width: '48%', marginBottom: 12 }}>
+                            <QuickAction icon={User} label="Players" color="#2196F3" onPress={() => navigation.navigate('Players')} />
+                        </View>
+                        <View style={{ width: '48%' }}>
+                            <Menu
+                                visible={otherTeamsMenuVisible}
+                                onDismiss={() => setOtherTeamsMenuVisible(false)}
+                                anchor={
+                                    <View>
+                                        <QuickAction 
+                                            icon={Shield} 
+                                            label="Other Teams" 
+                                            color="#FF9800" 
+                                            onPress={() => setOtherTeamsMenuVisible(true)} 
+                                        />
+                                    </View>
+                                }
+                            >
+                                {otherTeams.length === 0 ? (
+                                    <Menu.Item title="No other teams found" disabled />
+                                ) : (
+                                    otherTeams.map((team, idx) => (
+                                        <Menu.Item 
+                                            key={idx} 
+                                            onPress={() => {
+                                                setOtherTeamsMenuVisible(false);
+                                                navigation.navigate('Players', { filterTeam: team });
+                                            }} 
+                                            title={team} 
+                                        />
+                                    ))
+                                )}
+                            </Menu>
+                        </View>
+                        <View style={{ width: '48%' }}>
+                            <QuickAction icon={Settings} label="Settings" color="#757575" onPress={() => navigation.navigate('Settings')} />
+                        </View>
                     </View>
                 </View>
 
@@ -171,7 +248,9 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Title style={styles.sectionTitle}>Recent Matches</Title>
-                        <TouchableOpacity><Text style={{ color: '#4C8C4A', fontWeight: 'bold' }}>See All</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('AllMatches')}>
+                            <Text style={{ color: '#4C8C4A', fontWeight: 'bold' }}>See All</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {matches.length === 0 ? (
@@ -179,22 +258,36 @@ const HomeScreen = ({ navigation }) => {
                             <Card.Content style={styles.centered}>
                                 <History size={48} color="#ccc" />
                                 <Paragraph style={{ marginTop: 10 }}>No recent matches found</Paragraph>
-                                <Button mode="outlined" onPress={() => navigation.navigate('CreateMatch')} style={{ marginTop: 10 }}>Start your first match</Button>
+                                <Button mode="outlined" onPress={() => navigation.navigate('MatchType')} style={{ marginTop: 10 }}>Start your first match</Button>
                             </Card.Content>
                         </Card>
                     ) : (
-                        matches.map((item) => (
-                            <Card key={item.id} style={styles.matchCard} onPress={() => handleResumeMatch(item)}>
-                                <Card.Content style={{ padding: 16 }}>
-                                    <View style={styles.matchTop}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        matches.map((item) => {
+                            let isCompleted = false;
+                            let matchResultText = '';
+                            if (item.state_json) {
+                                try {
+                                    const stateObj = JSON.parse(item.state_json);
+                                    isCompleted = stateObj.isMatchOver;
+                                    matchResultText = stateObj.matchResult;
+                                } catch (e) {}
+                            }
+                            
+                            const statusLabel = isCompleted ? matchResultText || 'COMPLETED' : item.status;
+                            const statusBgColor = isCompleted ? '#F5F5F5' : (item.status === 'LIVE' ? '#E8F5E9' : '#F5F5F5');
+                            const statusTextColor = isCompleted ? '#757575' : (item.status === 'LIVE' ? '#4C8C4A' : '#757575');
 
-                                            <Text variant="labelSmall" style={styles.matchDate}>{item.date}</Text>
+                            return (
+                                <Card key={item.id} style={styles.matchCard} onPress={() => handleResumeMatch(item)}>
+                                    <Card.Content style={{ padding: 16 }}>
+                                        <View style={styles.matchTop}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Text variant="labelSmall" style={styles.matchDate}>{item.date}</Text>
+                                            </View>
+                                            <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
+                                                <Text style={[styles.statusText, { color: statusTextColor }]}>{statusLabel}</Text>
+                                            </View>
                                         </View>
-                                        <View style={[styles.statusBadge, { backgroundColor: item.status === 'LIVE' ? '#E8F5E9' : '#F5F5F5' }]}>
-                                            <Text style={[styles.statusText, { color: item.status === 'LIVE' ? '#4C8C4A' : '#757575' }]}>{item.status}</Text>
-                                        </View>
-                                    </View>
                                     <View style={styles.matchMain}>
                                         <View style={styles.teamInfo}>
                                             <Text style={styles.teamName}>{item.teamA}</Text>
@@ -202,7 +295,11 @@ const HomeScreen = ({ navigation }) => {
                                             <Text style={styles.teamName}>{item.teamB}</Text>
                                         </View>
                                         <TouchableOpacity onPress={() => handleResumeMatch(item)} style={styles.resumeBtn}>
-                                            <Play size={24} color="white" fill="white" />
+                                            {isCompleted ? (
+                                                <FileText size={22} color="white" />
+                                            ) : (
+                                                <Play size={24} color="white" fill="white" />
+                                            )}
                                         </TouchableOpacity>
                                     </View>
 
@@ -216,10 +313,36 @@ const HomeScreen = ({ navigation }) => {
                                             <Trash2 size={20} color="#EF5350" />
                                         </TouchableOpacity>
                                     </View>
+                                        
+                                        {isCompleted && (
+                                            <Button 
+                                                mode="outlined" 
+                                                onPress={() => handleStartNextMatch(item)} 
+                                                style={{ marginTop: 16, borderColor: '#4C8C4A', alignSelf: 'center', borderRadius: 24, paddingHorizontal: 16 }}
+                                                labelStyle={{ color: '#4C8C4A', fontWeight: 'bold' }}
+                                                icon={() => <Play size={16} color="#4C8C4A" />}
+                                                compact
+                                            >
+                                                Start Next Match
+                                            </Button>
+                                        )}
 
                                 </Card.Content>
                             </Card>
-                        ))
+                            );
+                        })
+                    )}
+                    
+                    {matches.length > 0 && (
+                        <Button 
+                            mode="outlined" 
+                            style={styles.viewAllBtn} 
+                            onPress={() => navigation.navigate('AllMatches')}
+                            labelStyle={{ color: '#4C8C4A', fontWeight: 'bold' }}
+                            icon={() => <List size={18} color="#4C8C4A" />}
+                        >
+                            View All Matches
+                        </Button>
                     )}
                 </View>
                 <View style={{ height: 100 }} />
@@ -303,6 +426,12 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: '700',
     },
+    viewAllBtn: {
+        marginTop: 16,
+        borderColor: '#4C8C4A',
+        borderRadius: 12,
+        paddingVertical: 4
+    }
 });
 
 export default HomeScreen;

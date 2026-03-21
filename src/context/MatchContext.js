@@ -22,6 +22,8 @@ const initialState = {
     history: [],
     isOverComplete: false,
     isMatchStarted: false,
+    lastBowlerName: null, 
+    batsmenThisOver: [],
     innings: 1,
     target: null,
     isInningsOver: false,
@@ -34,6 +36,15 @@ const initialState = {
         1: { score: { runs: 0, wickets: 0, overs: 0, balls: 0 }, batsmenStats: {}, batsmenOrder: [], bowlers: [], bowlerStats: {}, extras: { wide: 0, noBall: 0, bye: 0, legBye: 0 }, fallOfWickets: [], overHistory: [] },
         2: { score: { runs: 0, wickets: 0, overs: 0, balls: 0 }, batsmenStats: {}, batsmenOrder: [], bowlers: [], bowlerStats: {}, extras: { wide: 0, noBall: 0, bye: 0, legBye: 0 }, fallOfWickets: [], overHistory: [] }
     },
+    setupData: {
+        matchType: 'local', // 'local' or 'other'
+        teamA: { name: '', players: [], captain: null, wicketkeeper: null },
+        teamB: { name: '', players: [], captain: null, wicketkeeper: null },
+        overs: 10,
+        playersPerTeam: 11,
+        ground: '',
+        date: ''
+    }
 };
 
 function stateSnapshot(state) {
@@ -48,6 +59,12 @@ function matchReducer(state, action) {
                 ...initialState,
                 matchId: action.payload.id,
                 currentMatch: action.payload.data,
+                setupData: {
+                    ...state.setupData,
+                    ...action.payload.data,
+                    ground: action.payload.data.ground || '',
+                    date: action.payload.data.date || ''
+                },
                 isMatchStarted: false
             };
         case 'RESUME_MATCH':
@@ -61,17 +78,42 @@ function matchReducer(state, action) {
                 thisOver: action.payload.thisOver || [],
                 history: []
             };
-        case 'START_MATCH_WITH_PLAYERS':
-            return {
-                ...state,
-                batsmen: [
-                    { ...(state.batsmen?.[0] || initialState.batsmen[0]), name: action.payload.striker },
-                    { ...(state.batsmen?.[1] || initialState.batsmen[1]), name: action.payload.nonStriker },
-                ],
-                bowler: { ...(state.bowler || initialState.bowler), name: action.payload.bowler },
+        case 'START_MATCH_WITH_PLAYERS': {
+            const newState = JSON.parse(JSON.stringify(state));
+            const syncId = newState.innings || 1;
+            
+            newState.batsmen = [
+                { name: action.payload.striker, runs: 0, balls: 0, fours: 0, sixes: 0, isStriker: true },
+                { name: action.payload.nonStriker, runs: 0, balls: 0, fours: 0, sixes: 0, isStriker: false },
+            ];
+            newState.bowler = { name: action.payload.bowler, overs: 0, balls: 0, runs: 0, wickets: 0 };
+            newState.bowlers = [action.payload.bowler];
+            newState.isMatchStarted = true;
+            newState.score = { runs: 0, wickets: 0, overs: 0, balls: 0 };
+            newState.thisOver = [];
+            newState.history = [];
+
+            // Initialize/Reset inningsDetails for this start
+            if (!newState.inningsDetails) newState.inningsDetails = JSON.parse(JSON.stringify(initialState.inningsDetails));
+            
+            newState.inningsDetails[syncId] = {
+                score: { runs: 0, wickets: 0, overs: 0, balls: 0 },
+                batsmenStats: {
+                    [action.payload.striker]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false },
+                    [action.payload.nonStriker]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false }
+                },
+                batsmenOrder: [action.payload.striker, action.payload.nonStriker],
                 bowlers: [action.payload.bowler],
-                isMatchStarted: true,
+                bowlerStats: {
+                    [action.payload.bowler]: { overs: 0, balls: 0, runs: 0, wickets: 0 }
+                },
+                extras: { wide: 0, noBall: 0, bye: 0, legBye: 0 },
+                fallOfWickets: [],
+                overHistory: []
             };
+
+            return newState;
+        }
         case 'SET_NEW_BOWLER': {
             const bowlerName = action.payload;
             const newState = JSON.parse(JSON.stringify(state));
@@ -103,7 +145,9 @@ function matchReducer(state, action) {
                 bowler: { name: bowlerName, ...newState.bowlerStats[bowlerName] },
                 bowlers: updatedBowlers,
                 thisOver: [],
+                batsmenThisOver: [],
                 isOverComplete: false,
+                lastBowlerName: state.bowler?.name // Keep the one who JUST finished as restricted
             };
         }
         case 'RETIRE_BATSMAN': {
@@ -139,9 +183,21 @@ function matchReducer(state, action) {
             return newState;
         }
         case 'ADD_BALL': {
-            const { runs, extraType, isWicket, newBatsmanName, wicketType, runOutStriker } = action.payload;
+            const { runs, extraType, isWicket, newBatsmanName, wicketType, fielderName, runOutStriker } = action.payload;
             const newState = JSON.parse(JSON.stringify(state));
             newState.history = [...(state.history || []), stateSnapshot(state)].slice(-50);
+
+            // Ensure inningsDetails exist for the current inning
+            const syncId = newState.innings;
+            if (!newState.inningsDetails) newState.inningsDetails = JSON.parse(JSON.stringify(initialState.inningsDetails));
+            if (!newState.inningsDetails[syncId]) {
+                newState.inningsDetails[syncId] = JSON.parse(JSON.stringify(initialState.inningsDetails[1] || { 
+                    score: { runs: 0, wickets: 0, overs: 0, balls: 0 }, 
+                    batsmenStats: {}, batsmenOrder: [], bowlers: [], bowlerStats: {}, 
+                    extras: { wide: 0, noBall: 0, bye: 0, legBye: 0 }, fallOfWickets: [], overHistory: [] 
+                }));
+            }
+            const currentInningData = newState.inningsDetails[syncId];
 
             let totalRuns = runs;
             if (extraType === 'WIDE' || extraType === 'NB') {
@@ -191,10 +247,27 @@ function matchReducer(state, action) {
                     wicketNum,
                     batsman: outBatsmanName,
                     score: `${newState.score.runs}-${wicketNum}`,
-                    over: `${newState.score.overs}.${newState.score.balls}`
+                    over: `${newState.score.overs}.${newState.score.balls}`,
+                    wicketType: wicketType || (isWicket ? 'Wicket' : null),
+                    fielder: fielderName || null
                 });
 
                 if (replaceIndex !== -1) {
+                     const outBatsman = newState.batsmen[replaceIndex];
+                     if (outBatsman && outBatsman.name) {
+                         currentInningData.batsmenStats[outBatsman.name] = {
+                             runs: outBatsman.runs,
+                             balls: outBatsman.balls,
+                             fours: outBatsman.fours,
+                             sixes: outBatsman.sixes,
+                             isOut: true,
+                             wicketType: wicketType || 'Wicket',
+                             fielder: fielderName || null,
+                             bowler: newState.bowler.name,
+                             wicketNum: wicketNum
+                         };
+                     }
+
                      newState.batsmen[replaceIndex] = {
                          name: newBatsmanName,
                          runs: 0,
@@ -220,18 +293,21 @@ function matchReducer(state, action) {
             }
 
             // Sync Batting Stats for the current Innings
-            const currentInningData = newState.inningsDetails[newState.innings];
             newState.batsmen.forEach(b => {
                 if (b.name && b.name !== 'Striker' && b.name !== 'Non-Striker') {
                     if (!currentInningData.batsmenOrder.includes(b.name)) {
                         currentInningData.batsmenOrder.push(b.name);
                     }
-                    currentInningData.batsmenStats[b.name] = {
-                        runs: b.runs,
-                        balls: b.balls,
-                        fours: b.fours,
-                        sixes: b.sixes
-                    };
+                    // Only update if not already marked as out (this loop is for current batsmen)
+                    if (!currentInningData.batsmenStats[b.name]?.isOut) {
+                        currentInningData.batsmenStats[b.name] = {
+                            runs: b.runs,
+                            balls: b.balls,
+                            fours: b.fours,
+                            sixes: b.sixes,
+                            isOut: false
+                        };
+                    }
                 }
             });
 
@@ -269,13 +345,21 @@ function matchReducer(state, action) {
                          return acc + (parseInt(curr) || 0);
                     }, 0);
                     
+                    const bowlerName = newState.bowler.name || (state.bowler.name !== 'Bowler' ? state.bowler.name : 'N/A');
                     currentInningData.overHistory.push({
                         runs: runsThisOver + totalRuns,
-                        balls: [...newState.thisOver, ballResult]
+                        balls: [...newState.thisOver, ballResult],
+                        bowler: bowlerName,
+                        batsmen: [...newState.batsmenThisOver]
                     });
+                    newState.batsmenThisOver = [];
+                    newState.lastBowlerName = newState.bowler.name;
 
-                    newState.batsmen[0].isStriker = !newState.batsmen[0].isStriker;
-                    newState.batsmen[1].isStriker = !newState.batsmen[1].isStriker;
+                    // Swap ends at end of over
+                    if (newState.batsmen.length >= 2) {
+                        newState.batsmen[0].isStriker = !newState.batsmen[0].isStriker;
+                        newState.batsmen[1].isStriker = !newState.batsmen[1].isStriker;
+                    }
                 }
             }
             newState.bowler.runs += totalRuns;
@@ -291,10 +375,19 @@ function matchReducer(state, action) {
             }
 
             newState.thisOver.push(ballResult);
+            
+            // Track batsman who faced this ball
+            const facesBallStriker = newState.batsmen.find(b => b.isStriker);
+            if (facesBallStriker && !newState.batsmenThisOver.includes(facesBallStriker.name)) {
+                newState.batsmenThisOver.push(facesBallStriker.name);
+            }
 
-            if (runs % 2 !== 0 && extraType !== 'NB' && extraType !== 'WIDE' && !newState.isOverComplete) {
-                newState.batsmen[0].isStriker = !newState.batsmen[0].isStriker;
-                newState.batsmen[1].isStriker = !newState.batsmen[1].isStriker;
+            // Swap ends for odd runs
+            if (runs % 2 !== 0) {
+                if (newState.batsmen.length >= 2) {
+                    newState.batsmen[0].isStriker = !newState.batsmen[0].isStriker;
+                    newState.batsmen[1].isStriker = !newState.batsmen[1].isStriker;
+                }
             }
 
             // --- Innings & Match Completion Logic ---
@@ -349,8 +442,31 @@ function matchReducer(state, action) {
                 }
             }
 
+            // Handle terminal over push if match/innings ended mid-over
+            if (newState.isInningsOver || newState.isMatchOver) {
+                const currentInningDataEnd = newState.inningsDetails[syncId];
+                const lastOverInHistory = currentInningDataEnd.overHistory?.[currentInningDataEnd.overHistory.length - 1];
+                // If the last over in history is not this one (over count match)
+                // And explicitly check if current over is incomplete (balls > 0)
+                if (newState.thisOver.length > 0 && newState.score.balls > 0 && (!lastOverInHistory || newState.score.overs > (currentInningDataEnd.overHistory.length - 1))) {
+                    if (!currentInningDataEnd.overHistory) currentInningDataEnd.overHistory = [];
+                    currentInningDataEnd.overHistory.push({
+                        runs: newState.thisOver.reduce((acc, curr) => {
+                             if (curr === 'W') return acc;
+                             if (curr.includes('+W')) return acc + parseInt(curr.split('+')[0] || 0);
+                             if (curr === 'wd' || String(curr).startsWith('w')) return acc + 1 + (parseInt(curr.replace(/\D/g, '')) || 0);
+                             if (curr === 'nb' || String(curr).startsWith('n')) return acc + 1 + (parseInt(curr.replace(/\D/g, '')) || 0);
+                             if (String(curr).startsWith('b') || String(curr).startsWith('l')) return acc + (parseInt(curr.replace(/\D/g, '')) || 0);
+                             return acc + (parseInt(curr) || 0);
+                        }, 0),
+                        balls: [...newState.thisOver],
+                        bowler: newState.bowler.name || 'N/A',
+                        batsmen: [...newState.batsmenThisOver]
+                    });
+                }
+            }
+
             // Sync all current data to InningsDetails
-            const syncId = newState.innings;
             newState.inningsDetails[syncId] = {
                 score: { ...newState.score },
                 batsmenStats: { ...newState.inningsDetails[syncId].batsmenStats },
@@ -405,13 +521,36 @@ function matchReducer(state, action) {
                  newState.matchResult = `${bowlingTeam2} won by ${(newState.target || 0) - 1 - newState.score.runs} runs`;
              }
              
-             const syncId = newState.innings;
-             newState.inningsDetails[syncId] = {
-                 ...newState.inningsDetails[syncId],
+             const decSyncId = newState.innings;
+             if (!newState.inningsDetails[decSyncId].overHistory) newState.inningsDetails[decSyncId].overHistory = [];
+             
+             // Push final over if it has balls and wasn't already pushed
+             if (newState.thisOver.length > 0) {
+                 const currentHist = newState.inningsDetails[decSyncId].overHistory;
+                 const lastOverHist = currentHist[currentHist.length - 1];
+                 // Simple check: if balls faced in summary > actual balls in hist, might need push.
+                 // But safer to just check if thisOver contents match the last balls.
+                 // For DECLARE, we assume we need to push the current progress.
+                 currentHist.push({
+                     runs: newState.thisOver.reduce((acc, curr) => {
+                          if (curr === 'W') return acc;
+                          if (curr.includes('+W')) return acc + parseInt(curr.split('+')[0] || 0);
+                          if (curr === 'wd' || String(curr).startsWith('w')) return acc + 1 + (parseInt(curr.replace(/\D/g, '')) || 0);
+                          if (curr === 'nb' || String(curr).startsWith('n')) return acc + 1 + (parseInt(curr.replace(/\D/g, '')) || 0);
+                          if (String(curr).startsWith('b') || String(curr).startsWith('l')) return acc + (parseInt(curr.replace(/\D/g, '')) || 0);
+                          return acc + (parseInt(curr) || 0);
+                     }, 0),
+                     balls: [...newState.thisOver],
+                     bowler: newState.bowler.name || 'N/A'
+                 });
+             }
+
+             newState.inningsDetails[decSyncId] = {
+                 ...newState.inningsDetails[decSyncId],
                  score: { ...newState.score },
-                 batsmenStats: { ...newState.inningsDetails[syncId].batsmenStats },
-                 batsmenOrder: [...newState.inningsDetails[syncId].batsmenOrder],
-                 overHistory: [...(newState.inningsDetails[syncId].overHistory || [])]
+                 batsmenStats: { ...newState.inningsDetails[decSyncId].batsmenStats },
+                 batsmenOrder: [...newState.inningsDetails[decSyncId].batsmenOrder],
+                 overHistory: [...(newState.inningsDetails[decSyncId].overHistory || [])]
              };
 
              return newState;
@@ -429,6 +568,19 @@ function matchReducer(state, action) {
             }
             return newState;
         }
+        case 'UPDATE_SETUP_DATA':
+            return {
+                ...state,
+                setupData: {
+                    ...state.setupData,
+                    ...action.payload
+                }
+            };
+        case 'CLEAR_SETUP':
+            return {
+                ...state,
+                setupData: JSON.parse(JSON.stringify(initialState.setupData))
+            };
         default:
             return state;
     }
@@ -451,13 +603,91 @@ export const MatchProvider = ({ children }) => {
     const retireBatsman = (isStriker, newName) => dispatch({ type: 'RETIRE_BATSMAN', payload: { isStriker, newName } });
     const startSecondInnings = () => dispatch({ type: 'START_SECOND_INNINGS' });
     const resetMatch = () => dispatch({ type: 'RESET_MATCH' });
+    const clearSetupData = () => dispatch({ type: 'CLEAR_SETUP' });
     const addBall = (ballData) => dispatch({ type: 'ADD_BALL', payload: ballData });
     const declareInnings = () => dispatch({ type: 'DECLARE_INNINGS' });
     const undoBall = () => dispatch({ type: 'UNDO' });
     const swapStrike = () => dispatch({ type: 'SWAP_STRIKE' });
+    const getBowlingTeamPlayers = () => {
+        if (!state.currentMatch || !state.currentMatch.teamAData) return [];
+        const { teamAData, teamBData, tossWinner, tossDecision } = state.currentMatch;
+        const isInnings1 = state.innings === 1;
+        
+        let battingTeamName;
+        if (tossWinner === teamAData.name) {
+            battingTeamName = tossDecision === 'bat' ? teamAData.name : teamBData.name;
+        } else {
+            battingTeamName = tossDecision === 'bat' ? teamBData.name : teamAData.name;
+        }
+        
+        if (!isInnings1) {
+            battingTeamName = (battingTeamName === teamAData.name) ? teamBData.name : teamAData.name;
+        }
+        
+        const bowlingTeam = (battingTeamName === teamAData.name) ? teamBData : teamAData;
+        return bowlingTeam.players || [];
+    };
+
+    const getBowlingTeamWK = () => {
+        if (!state.currentMatch || !state.currentMatch.teamAData) return null;
+        const { teamAData, teamBData, tossWinner, tossDecision } = state.currentMatch;
+        const isInnings1 = state.innings === 1;
+        
+        let battingTeamName;
+        if (tossWinner === teamAData.name) {
+            battingTeamName = tossDecision === 'bat' ? teamAData.name : teamBData.name;
+        } else {
+            battingTeamName = tossDecision === 'bat' ? teamBData.name : teamAData.name;
+        }
+        
+        if (!isInnings1) {
+            battingTeamName = (battingTeamName === teamAData.name) ? teamBData.name : teamAData.name;
+        }
+        
+        const bowlingTeam = (battingTeamName === teamAData.name) ? teamBData : teamAData;
+        return bowlingTeam.wicketkeeper;
+    };
+
+    const getBattingTeamPlayers = (inningNum) => {
+        if (!state.currentMatch || !state.currentMatch.teamAData) return [];
+        const { teamAData, teamBData, tossWinner, tossDecision } = state.currentMatch;
+        const targetInning = inningNum || state.innings;
+        const isInnings1 = targetInning === 1;
+        
+        let battingTeam;
+        if (tossWinner === teamAData.name) {
+            battingTeam = tossDecision === 'bat' ? (isInnings1 ? teamAData : teamBData) : (isInnings1 ? teamBData : teamAData);
+        } else {
+            battingTeam = tossDecision === 'bat' ? (isInnings1 ? teamBData : teamAData) : (isInnings1 ? teamAData : teamBData);
+        }
+        
+        return battingTeam.players || [];
+    };
+
+    const getYetToBat = (inningNum) => {
+        const targetInning = inningNum || state.innings;
+        const allPlayers = getBattingTeamPlayers(targetInning);
+        const currentBatsmenNames = state.inningsDetails[targetInning]?.batsmenOrder || [];
+        return allPlayers.filter(p => !currentBatsmenNames.includes(p.name));
+    };
+
+    const getAvailableBatsmen = () => {
+        const allBatsmen = getBattingTeamPlayers();
+        const currentBatsmenNames = state.batsmen.map(b => b.name);
+        const outBatsmenStats = state.inningsDetails[state.innings]?.batsmenStats || {};
+        
+        return allBatsmen.filter(p => {
+            const isAtCrease = currentBatsmenNames.includes(p.name);
+            const isOut = outBatsmenStats[p.name]?.isOut === true;
+            return !isAtCrease && !isOut;
+        });
+    };
+
+    const updateSetupData = (data) => dispatch({ type: 'UPDATE_SETUP_DATA', payload: data });
 
     return (
         <MatchContext.Provider value={{
+            ...initialState,
             ...state,
             startMatch,
             resumeMatch,
@@ -469,7 +699,14 @@ export const MatchProvider = ({ children }) => {
             undoBall,
             swapStrike,
             startSecondInnings,
-            resetMatch
+            resetMatch,
+            updateSetupData,
+            clearSetupData,
+            getBowlingTeamPlayers,
+            getBowlingTeamWK,
+            getBattingTeamPlayers,
+            getYetToBat,
+            getAvailableBatsmen
         }}>
             {children}
         </MatchContext.Provider>

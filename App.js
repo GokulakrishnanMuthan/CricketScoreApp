@@ -15,6 +15,11 @@ import PlayersScreen from './src/screens/PlayersScreen';
 import AddPlayerScreen from './src/screens/AddPlayerScreen';
 import PlayerStatsScreen from './src/screens/PlayerStatsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import MatchTypeScreen from './src/screens/MatchTypeScreen.js';
+import TeamSetupScreen from './src/screens/TeamSetupScreen.js';
+import PlayingXISelectionScreen from './src/screens/PlayingXISelectionScreen.js';
+import MatchSummaryScreen from './src/screens/MatchSummaryScreen.js';
+import AllMatchesScreen from './src/screens/AllMatchesScreen.js';
 import { DefaultTheme } from '@react-navigation/native';
 
 const Stack = createStackNavigator();
@@ -62,6 +67,11 @@ export default function App() {
                             <Stack.Screen name="AddPlayer" component={AddPlayerScreen} options={({ route }) => ({ title: route.params?.player ? 'Edit Player' : 'Add New Player' })} />
                             <Stack.Screen name="PlayerStats" component={PlayerStatsScreen} options={({ route }) => ({ title: `${route.params?.player?.name || 'Player'} — Stats` })} />
                             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings & Backup' }} />
+                            <Stack.Screen name="MatchType" component={MatchTypeScreen} options={{ title: 'Select Match Type' }} />
+                            <Stack.Screen name="TeamSetup" component={TeamSetupScreen} options={{ title: 'Team Setup' }} />
+                            <Stack.Screen name="PlayingXISelection" component={PlayingXISelectionScreen} options={{ title: 'Select Playing XI' }} />
+                            <Stack.Screen name="MatchSummary" component={MatchSummaryScreen} options={{ title: 'Match Summary' }} />
+                            <Stack.Screen name="AllMatches" component={AllMatchesScreen} options={{ title: 'All Matches' }} />
                         </Stack.Navigator>
                     </NavigationContainer>
                 </MatchProvider>

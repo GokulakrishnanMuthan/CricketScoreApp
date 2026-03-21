@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, IconButton, Portal, Dialog, useTheme, Avatar } from 'react-native-paper';
-import { User, Plus, Camera, Instagram, Facebook, Phone, Contact, Hash, ChevronDown, Save } from 'lucide-react-native';
+import { User, Plus, Camera, Instagram, Facebook, Phone, Contact, Hash, ChevronDown, Save, Shield } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { addAppPlayer, updateAppPlayer } from '../database/database';
 
@@ -44,6 +44,7 @@ const AddPlayerScreen = ({ navigation, route }) => {
     const [insta, setInsta] = useState(getHandle(editingPlayer?.insta_id) || '');
     const [fb, setFb] = useState(getHandle(editingPlayer?.fb_id) || '');
     const [image, setImage] = useState(editingPlayer?.image_uri || null);
+    const [teamName, setTeamName] = useState(editingPlayer?.team_name || 'Striker XI');
 
     const [roleVisible, setRoleVisible] = useState(false);
     const [battingVisible, setBattingVisible] = useState(false);
@@ -95,9 +96,9 @@ const AddPlayerScreen = ({ navigation, route }) => {
 
         try {
             if (editingPlayer) {
-                await updateAppPlayer(editingPlayer.id, name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain);
+                await updateAppPlayer(editingPlayer.id, name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain, teamName);
             } else {
-                await addAppPlayer(name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain);
+                await addAppPlayer(name, jersey, role, phone, image, normalizedInsta, battingStyle, bowlingStyle, isWK, normalizedFb, isCaptain, teamName);
             }
             navigation.goBack();
         } catch (error) {
@@ -181,6 +182,17 @@ const AddPlayerScreen = ({ navigation, route }) => {
                     onChangeText={setJersey}
                     mode="outlined"
                     keyboardType="numeric"
+                    style={styles.input}
+                    outlineStyle={{ borderRadius: 12 }}
+                    activeOutlineColor="#4C8C4A"
+                />
+
+                <TextInput
+                    label="Team Name *"
+                    value={teamName}
+                    onChangeText={setTeamName}
+                    mode="outlined"
+                    left={<TextInput.Icon icon={() => <Shield size={20} color="#4C8C4A" />} />}
                     style={styles.input}
                     outlineStyle={{ borderRadius: 12 }}
                     activeOutlineColor="#4C8C4A"

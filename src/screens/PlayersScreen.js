@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, FlatList, Linking } from 'react-native';
-import { Button, Card, Text, useTheme, Avatar } from 'react-native-paper';
+import { Button, Card, Text, useTheme, Avatar, Portal, Dialog } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { User, Plus, Trash2, Hash, Phone, Contact, Edit2, Instagram, Facebook, Shield, Star, BarChart2 } from 'lucide-react-native';
 import { getAppPlayers, deleteAppPlayer } from '../database/database';
 
-const PlayersScreen = ({ navigation }) => {
+const PlayersScreen = ({ navigation, route }) => {
     const theme = useTheme();
     const [players, setPlayers] = useState([]);
+    const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const filterTeam = route?.params?.filterTeam;
+
+    React.useLayoutEffect(() => {
+        if (filterTeam) {
+            navigation.setOptions({ title: filterTeam });
+        }
+    }, [navigation, filterTeam]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -19,7 +28,12 @@ const PlayersScreen = ({ navigation }) => {
         try {
             const data = await getAppPlayers();
             // Sort by name case-insensitively
-            const sortedData = data.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+            let sortedData = data.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+            if (filterTeam) {
+                sortedData = sortedData.filter(p => p.team_name === filterTeam);
+            }
+
             setPlayers(sortedData);
         } catch (error) {
             console.error('Failed to load players:', error);
@@ -31,25 +45,21 @@ const PlayersScreen = ({ navigation }) => {
     };
 
     const handleDeletePlayer = (id) => {
-        Alert.alert(
-            'Delete Player',
-            'Are you sure you want to delete this player?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await deleteAppPlayer(id);
-                            loadPlayers();
-                        } catch (error) {
-                            console.error('Failed to delete player:', error);
-                        }
-                    }
-                }
-            ]
-        );
+        setPendingDeleteId(id);
+        setDeleteDialogVisible(true);
+    };
+
+    const confirmDelete = async () => {
+        setDeleteDialogVisible(false);
+        if (pendingDeleteId) {
+            try {
+                await deleteAppPlayer(pendingDeleteId);
+                loadPlayers();
+            } catch (error) {
+                console.error('Failed to delete player:', error);
+            }
+            setPendingDeleteId(null);
+        }
     };
 
     const openLink = async (url) => {
@@ -102,7 +112,19 @@ const PlayersScreen = ({ navigation }) => {
                         )}
                     </View>
                     <View style={styles.textContainer}>
-                        <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                            <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
+                            {item.is_captain === 1 && (
+                                <View style={styles.nameBadgeC}>
+                                    <Text style={styles.nameBadgeTextC}>C</Text>
+                                </View>
+                            )}
+                            {item.is_wicket_keeper === 1 && (
+                                <View style={styles.nameBadgeWK}>
+                                    <Text style={styles.nameBadgeTextWK}>WK</Text>
+                                </View>
+                            )}
+                        </View>
                         <View style={styles.badgeRow}>
                             <View style={styles.badge}>
                                 <Hash size={12} color="#666" />
@@ -140,45 +162,80 @@ const PlayersScreen = ({ navigation }) => {
                                     <Text style={styles.fbText}>Facebook</Text>
                                 </TouchableOpacity>
                             )}
-                            {item.is_captain === 1 && (
-                                <View style={[styles.badge, { backgroundColor: '#FFF9C4' }]}>
-                                    <Star size={12} color="#FBC02D" fill="#FBC02D" />
-                                    <Text style={[styles.badgeText, { color: '#FBC02D' }]}>CAPT</Text>
-                                </View>
-                            )}
-                            {item.is_wicket_keeper === 1 && (
-                                <View style={[styles.badge, { backgroundColor: '#FFF3E0' }]}>
-                                    <Shield size={12} color="#EF6C00" />
-                                    <Text style={[styles.badgeText, { color: '#EF6C00' }]}>WK</Text>
-                                </View>
-                            )}
                             {item.batting_style && (
                                 <View style={styles.badge}>
                                     <Text style={styles.badgeText}>{item.batting_style === 'Right Hand' ? 'RHB' : 'LHB'}</Text>
                                 </View>
                             )}
+                            {item.team_name && (
+                                <View style={[styles.badge, { backgroundColor: '#E8F5E9' }]}>
+                                    <Shield size={12} color="#4C8C4A" />
+                                    <Text style={[styles.badgeText, { color: '#4C8C4A' }]}>{item.team_name}</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
                 </View>
-                <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => navigation.navigate('PlayerStats', { player: item })} style={styles.statsBtn}>
-                        <BarChart2 size={20} color="#1565C0" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editBtn}>
-                        <Edit2 size={20} color="#4C8C4A" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeletePlayer(item.id)} style={styles.deleteBtn}>
-                        <Trash2 size={20} color="#EF5350" />
-                    </TouchableOpacity>
-                </View>
+            </View>
+            <View style={{ height: 1, backgroundColor: '#f0f0f0' }} />
+            <View style={styles.cardActions}>
+                <TouchableOpacity onPress={() => navigation.navigate('PlayerStats', { player: item })} style={styles.actionItem}>
+                    <BarChart2 size={18} color="#1565C0" />
+                    <Text style={[styles.actionLabel, { color: '#1565C0' }]}>Stats</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionItem}>
+                    <Edit2 size={18} color="#4C8C4A" />
+                    <Text style={[styles.actionLabel, { color: '#4C8C4A' }]}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeletePlayer(item.id)} style={styles.actionItem}>
+                    <Trash2 size={18} color="#EF5350" />
+                    <Text style={[styles.actionLabel, { color: '#EF5350' }]}>Delete</Text>
+                </TouchableOpacity>
             </View>
         </Card>
     );
 
     return (
         <View style={styles.container}>
+            <Portal>
+                <Dialog
+                    visible={deleteDialogVisible}
+                    onDismiss={() => setDeleteDialogVisible(false)}
+                    style={styles.deleteDialog}
+                >
+                    <View style={styles.deleteDialogIcon}>
+                        <Trash2 size={32} color="#EF5350" />
+                    </View>
+                    <Dialog.Title style={styles.deleteDialogTitle}>Delete Player?</Dialog.Title>
+                    <Dialog.Content>
+                        <Text style={styles.deleteDialogBody}>
+                            Are you sure you want to remove this player? This action cannot be undone.
+                        </Text>
+                    </Dialog.Content>
+                    <Dialog.Actions style={styles.deleteDialogActions}>
+                        <Button
+                            mode="outlined"
+                            onPress={() => setDeleteDialogVisible(false)}
+                            style={styles.cancelBtn}
+                            labelStyle={styles.cancelBtnLabel}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            mode="contained"
+                            onPress={confirmDelete}
+                            buttonColor="#EF5350"
+                            style={styles.deleteBtn}
+                            labelStyle={styles.deleteBtnLabel}
+                        >
+                            Delete
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+
             <View style={styles.header}>
-                <Text style={styles.headerSubtitle}>{players.length} Players Registered</Text>
+                <Text style={styles.headerSubtitle}>{players.length} {filterTeam ? 'Players' : 'Players Registered'}</Text>
             </View>
 
             <FlatList
@@ -212,10 +269,10 @@ const styles = StyleSheet.create({
     headerSubtitle: { color: '#B0C4B1', fontSize: 14 },
     listContainer: { padding: 16, paddingBottom: 100 },
     playerCard: { marginBottom: 12, borderRadius: 16, elevation: 3, backgroundColor: 'white' },
-    cardContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-    playerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    cardContent: { padding: 16 },
+    playerInfo: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
     textContainer: { marginLeft: 12, flex: 1 },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginTop: 2 },
     playerName: { fontSize: 18, fontWeight: '700', color: '#1B4D3E' },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F4F1', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
@@ -245,8 +302,52 @@ const styles = StyleSheet.create({
     },
     fbText: { color: 'white', fontSize: 11, fontWeight: '800', marginLeft: 4 },
     statsBtn: { padding: 8 },
-    deleteBtn: { padding: 8, marginLeft: 8 },
+    deleteBtn: { flex: 1, borderRadius: 10 },
     editBtn: { padding: 8, marginLeft: 4 },
+    cardActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingVertical: 12,
+        backgroundColor: '#FCFCFC',
+    },
+    actionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+    },
+    actionLabel: {
+        marginLeft: 6,
+        fontWeight: '700',
+        fontSize: 13,
+    },
+    nameBadgeC: {
+        backgroundColor: '#FFF9C4',
+        borderRadius: 4,
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        marginLeft: 6,
+        borderWidth: 1,
+        borderColor: '#FBC02D'
+    },
+    nameBadgeTextC: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#F9A825'
+    },
+    nameBadgeWK: {
+        backgroundColor: '#FFF3E0',
+        borderRadius: 4,
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        marginLeft: 4,
+        borderWidth: 1,
+        borderColor: '#EF6C00'
+    },
+    nameBadgeTextWK: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#E65100'
+    },
     fab: {
         position: 'absolute',
         right: 20,
@@ -264,6 +365,23 @@ const styles = StyleSheet.create({
     },
     emptyContainer: { alignItems: 'center', marginTop: 100 },
     emptyText: { color: '#999', marginTop: 12, fontSize: 16 },
+
+    deleteDialog: {
+        borderRadius: 20,
+        backgroundColor: 'white',
+        paddingTop: 8,
+        overflow: 'hidden',
+        borderTopWidth: 5,
+        borderTopColor: '#EF5350',
+    },
+    deleteDialogIcon: { alignItems: 'center', marginTop: 20, marginBottom: 4 },
+    deleteDialogTitle: { textAlign: 'center', fontWeight: '800', fontSize: 20, color: '#1B4D3E' },
+    deleteDialogBody: { textAlign: 'center', color: '#666', fontSize: 14, lineHeight: 20 },
+    deleteDialogActions: { paddingHorizontal: 20, paddingBottom: 20, gap: 10 },
+    cancelBtn: { flex: 1, borderRadius: 10, borderColor: '#4C8C4A' },
+    cancelBtnLabel: { color: '#4C8C4A', fontWeight: '700' },
+    deleteBtn: { flex: 1, borderRadius: 10 },
+    deleteBtnLabel: { color: 'white', fontWeight: '700' },
 });
 
 export default PlayersScreen;

@@ -18,6 +18,7 @@ export const initDatabase = async () => {
                     teamA TEXT NOT NULL,
                     teamB TEXT NOT NULL,
                     overs INTEGER NOT NULL,
+                    ground TEXT,
                     tossWinner TEXT,
                     tossDecision TEXT,
                     state_json TEXT,
@@ -61,7 +62,8 @@ export const initDatabase = async () => {
                     bowling_style TEXT,
                     is_wicket_keeper INTEGER DEFAULT 0,
                     fb_id TEXT,
-                    is_captain INTEGER DEFAULT 0
+                    is_captain INTEGER DEFAULT 0,
+                    team_name TEXT DEFAULT 'Striker XI'
                 );
             `);
 
@@ -71,6 +73,11 @@ export const initDatabase = async () => {
 
             if (!hasStateJson) {
                 await db.execAsync("ALTER TABLE matches ADD COLUMN state_json TEXT;");
+            }
+
+            const hasGround = tableInfo.some(column => column.name === 'ground');
+            if (!hasGround) {
+                await db.execAsync("ALTER TABLE matches ADD COLUMN ground TEXT;");
             }
 
             // Migration for app_players new columns
@@ -102,6 +109,12 @@ export const initDatabase = async () => {
             if (!hasCaptain) {
                 await db.execAsync("ALTER TABLE app_players ADD COLUMN is_captain INTEGER DEFAULT 0;");
             }
+            
+            const playerTableInfoTeam = await db.getAllAsync("PRAGMA table_info(app_players)");
+            const hasTeamName = playerTableInfoTeam.some(column => column.name === 'team_name');
+            if (!hasTeamName) {
+                await db.execAsync("ALTER TABLE app_players ADD COLUMN team_name TEXT DEFAULT 'Striker XI';");
+            }
 
             console.log('Database initialized successfully');
             return db;
@@ -118,8 +131,8 @@ export const initDatabase = async () => {
 export const createMatch = async (matchData) => {
     const database = await getDb();
     const result = await database.runAsync(
-        'INSERT INTO matches (teamA, teamB, overs, tossWinner, tossDecision) VALUES (?, ?, ?, ?, ?)',
-        [matchData.teamA, matchData.teamB, matchData.overs, matchData.tossWinner, matchData.tossDecision]
+        'INSERT INTO matches (teamA, teamB, overs, ground, tossWinner, tossDecision) VALUES (?, ?, ?, ?, ?, ?)',
+        [matchData.teamA, matchData.teamB, matchData.overs, matchData.ground || '', matchData.tossWinner, matchData.tossDecision]
     );
     return result.lastInsertRowId;
 };
@@ -133,9 +146,17 @@ export const updateMatchState = async (matchId, state) => {
     );
 };
 
-export const getRecentMatches = async () => {
+export const getRecentMatches = async (limit = 5) => {
     const database = await getDb();
-    return database.getAllAsync('SELECT * FROM matches ORDER BY date DESC LIMIT 10');
+    const query = limit > 0 
+        ? `SELECT * FROM matches ORDER BY date DESC LIMIT ${limit}`
+        : `SELECT * FROM matches ORDER BY date DESC`;
+    return database.getAllAsync(query);
+};
+
+export const getAllMatches = async () => {
+    const database = await getDb();
+    return database.getAllAsync('SELECT * FROM matches ORDER BY date DESC');
 };
 
 export const clearAllData = async () => {
@@ -152,11 +173,11 @@ export const deleteMatch = async (matchId) => {
 };
 
 // Player Management
-export const addAppPlayer = async (name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain) => {
+export const addAppPlayer = async (name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain, teamName) => {
     const database = await getDb();
     const result = await database.runAsync(
-        'INSERT INTO app_players (name, jersey_number, role, phone, image_uri, insta_id, batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0]
+        'INSERT INTO app_players (name, jersey_number, role, phone, image_uri, insta_id, batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain, team_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0, teamName || 'Striker XI']
     );
     return result.lastInsertRowId;
 };
@@ -171,12 +192,23 @@ export const deleteAppPlayer = async (id) => {
     await database.runAsync('DELETE FROM app_players WHERE id = ?', [id]);
 };
 
-export const updateAppPlayer = async (id, name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain) => {
+export const updateAppPlayer = async (id, name, jersey, role, phone, image, insta, batting, bowling, isWK, fb, isCaptain, teamName) => {
     const database = await getDb();
     await database.runAsync(
-        'UPDATE app_players SET name = ?, jersey_number = ?, role = ?, phone = ?, image_uri = ?, insta_id = ?, batting_style = ?, bowling_style = ?, is_wicket_keeper = ?, fb_id = ?, is_captain = ? WHERE id = ?',
-        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0, id]
+        'UPDATE app_players SET name = ?, jersey_number = ?, role = ?, phone = ?, image_uri = ?, insta_id = ?, batting_style = ?, bowling_style = ?, is_wicket_keeper = ?, fb_id = ?, is_captain = ?, team_name = ? WHERE id = ?',
+        [name, jersey, role, phone, image, insta, batting, bowling, isWK ? 1 : 0, fb, isCaptain ? 1 : 0, teamName || 'Striker XI', id]
     );
+};
+
+export const getOtherTeams = async () => {
+    const database = await getDb();
+    const result = await database.getAllAsync("SELECT DISTINCT team_name FROM app_players WHERE team_name != 'Striker XI' AND team_name IS NOT NULL AND team_name != ''");
+    return result.map(row => row.team_name);
+};
+
+export const getPlayersByTeam = async (teamName) => {
+    const database = await getDb();
+    return database.getAllAsync("SELECT * FROM app_players WHERE team_name = ?", [teamName]);
 };
 
 export const getAllMatchStates = async () => {
@@ -221,13 +253,13 @@ export const importAllData = async (backup) => {
     await database.withTransactionAsync(async () => {
         for (const p of players) {
             await database.runAsync(
-                `INSERT OR REPLACE INTO app_players
-                    (id, name, jersey_number, role, phone, image_uri, insta_id,
-                     batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [p.id, p.name, p.jersey_number, p.role, p.phone, p.image_uri,
-                 p.insta_id, p.batting_style, p.bowling_style,
-                 p.is_wicket_keeper, p.fb_id, p.is_captain]
+                `INSERT OR REPLACE INTO app_players 
+                    (id, name, jersey_number, role, phone, image_uri, insta_id, 
+                     batting_style, bowling_style, is_wicket_keeper, fb_id, is_captain, team_name)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [p.id, p.name, p.jersey_number, p.role, p.phone, p.image_uri, 
+                 p.insta_id, p.batting_style, p.bowling_style, 
+                 p.is_wicket_keeper, p.fb_id, p.is_captain, p.team_name || 'Striker XI']
             );
         }
         for (const m of matches) {
