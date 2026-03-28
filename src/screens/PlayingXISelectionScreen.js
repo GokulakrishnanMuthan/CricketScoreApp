@@ -32,7 +32,8 @@ const PlayingXISelectionScreen = ({ navigation }) => {
     }, []);
 
     useEffect(() => {
-        if (isTeamBManual && setupData.teamB?.name && teamBPlayers.length === 0) {
+        const isOther = setupData.matchType === 'other';
+        if (isOther && setupData.teamB?.name && teamBPlayers.length === 0) {
             const loadTeamB = async () => {
                 const teamPlayers = await getPlayersByTeam(setupData.teamB.name);
                 if (teamPlayers.length > 0) {
@@ -45,7 +46,7 @@ const PlayingXISelectionScreen = ({ navigation }) => {
             };
             loadTeamB();
         }
-    }, [isTeamBManual, setupData.teamB?.name]);
+    }, [setupData.teamB?.name, setupData.matchType]);
 
     const loadPlayers = async () => {
         const data = await getAppPlayers();
@@ -341,7 +342,10 @@ const PlayingXISelectionScreen = ({ navigation }) => {
 
             <Portal>
                 <Dialog visible={roleDialogVisible} onDismiss={() => setRoleDialogVisible(false)} style={styles.dialog}>
-                    <Dialog.Title>Select {roleToAssign === 'captain' ? 'Captain' : 'Wicketkeeper'}</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title>Select {roleToAssign === 'captain' ? 'Captain' : 'Wicketkeeper'}</Dialog.Title>
+                        <IconButton icon="close" size={22} onPress={() => setRoleDialogVisible(false)} />
+                    </View>
                     <Dialog.Content>
                         <ScrollView style={{ maxHeight: 300 }}>
                             {getSelectedPlayers().length === 0 ? (
@@ -370,6 +374,12 @@ const PlayingXISelectionScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAF9' },
+    dialogHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 8,
+    },
     customTabs: { 
         flexDirection: 'row', 
         backgroundColor: 'white', 

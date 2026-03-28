@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform
 } from 'react-native';
-import { Text, Card, Button, Portal, Dialog, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Button, Portal, Dialog, ActivityIndicator, IconButton } from 'react-native-paper';
 import { Download, Upload, Database, CheckCircle, AlertCircle, Shield } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -321,7 +321,10 @@ const SettingsScreen = () => {
                     <View style={styles.dialogIconRow}>
                         <Upload size={28} color="#1565C0" />
                     </View>
-                    <Dialog.Title style={styles.dialogTitle}>Restore Backup?</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.dialogTitle}>Restore Backup?</Dialog.Title>
+                        <IconButton icon="close" size={22} onPress={() => setImportDialog(prev => ({ ...prev, visible: false }))} />
+                    </View>
                     <Dialog.Content>
                         <Text style={styles.dialogFileName}>{importDialog.fileName}</Text>
                         {renderBackupSummary(importDialog.parsedData)}
@@ -362,9 +365,12 @@ const SettingsScreen = () => {
                             : <AlertCircle size={32} color="#EF5350" />
                         }
                     </View>
-                    <Dialog.Title style={[styles.dialogTitle, { color: resultDialog.success ? '#1B4D3E' : '#B71C1C' }]}>
-                        {resultDialog.title}
-                    </Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={[styles.dialogTitle, { color: resultDialog.success ? '#1B4D3E' : '#B71C1C' }]}>
+                            {resultDialog.title}
+                        </Dialog.Title>
+                        <IconButton icon="close" size={22} onPress={() => setResultDialog(prev => ({ ...prev, visible: false }))} />
+                    </View>
                     <Dialog.Content>
                         <Text style={styles.resultMessage}>{resultDialog.message}</Text>
                     </Dialog.Content>
@@ -430,6 +436,12 @@ const styles = StyleSheet.create({
     actionBtn: { borderRadius: 12 },
 
     howText: { fontSize: 13, color: '#555', marginBottom: 8, lineHeight: 19 },
+    dialogHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 8,
+    },
 
     // dialogs
     dialog: {

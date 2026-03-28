@@ -119,7 +119,10 @@ const AddPlayerScreen = ({ navigation, route }) => {
             </TouchableOpacity>
             <Portal>
                 <Dialog visible={visible} onDismiss={() => setVisible(false)} style={styles.dialog}>
-                    <Dialog.Title>Select {label}</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title>Select {label}</Dialog.Title>
+                        <IconButton icon="close" size={22} onPress={() => setVisible(false)} />
+                    </View>
                     <Dialog.Content>
                         <ScrollView style={{ maxHeight: 300 }}>
                             {options.map((option) => (
@@ -346,6 +349,12 @@ const styles = StyleSheet.create({
         borderColor: '#eee'
     },
     saveBtn: { borderRadius: 12, backgroundColor: '#4C8C4A', elevation: 4 },
+    dialogHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 8,
+    },
     dialog: { borderRadius: 20, backgroundColor: 'white' },
     optionItem: { 
         paddingVertical: 14, 

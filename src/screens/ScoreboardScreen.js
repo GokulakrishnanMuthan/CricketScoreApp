@@ -110,6 +110,23 @@ const ScoreboardScreen = ({ navigation }) => {
                         </tbody>
                     </table>
                     ` : ''}
+
+                    ${data.fallOfWickets && data.fallOfWickets.length > 0 ? `
+                    <h4>Fall of Wickets</h4>
+                    <table>
+                        <thead><tr><th>Wkt</th><th>Batsman</th><th>Score</th><th>Over</th></tr></thead>
+                        <tbody>
+                            ${data.fallOfWickets.map((w, idx) => `
+                                <tr>
+                                    <td>${idx + 1}</td>
+                                    <td>${w.batsman}</td>
+                                    <td>${w.score}</td>
+                                    <td>${w.over}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ` : ''}
                 </div>
             `;
         };
@@ -154,19 +171,16 @@ const ScoreboardScreen = ({ navigation }) => {
             const safeTeamA = teamA.replace(/[^a-zA-Z0-9]/g, '');
             const safeTeamB = teamB.replace(/[^a-zA-Z0-9]/g, '');
 
-            let dateStr = 'Date';
-            try {
-                if (currentMatch?.date) {
-                    const parsed = new Date(currentMatch.date);
-                    if (!isNaN(parsed.getTime())) {
-                        dateStr = parsed.toISOString().split('T')[0];
-                    }
-                } else {
-                    dateStr = new Date().toISOString().split('T')[0];
-                }
-            } catch (e) { }
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hour = String(now.getHours()).padStart(2, '0');
+            const minute = String(now.getMinutes()).padStart(2, '0');
+            const second = String(now.getSeconds()).padStart(2, '0');
+            const dateTimeStr = `${year}${month}${day}_${hour}${minute}${second}`;
 
-            const newFileName = `${safeTeamA}_vs_${safeTeamB}_${dateStr}.pdf`;
+            const newFileName = `${safeTeamA}_vs_${safeTeamB}_${dateTimeStr}.pdf`;
             const newUri = uri.substring(0, uri.lastIndexOf('/') + 1) + newFileName;
 
             await FileSystem.moveAsync({

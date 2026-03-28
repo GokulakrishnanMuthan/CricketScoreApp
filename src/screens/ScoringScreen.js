@@ -12,7 +12,8 @@ const ScoringScreen = ({ navigation }) => {
         currentMatch, swapStrike, isOverComplete, isMatchStarted,
         startWithPlayers, setNewBowler, retireBatsman, declareInnings,
         innings, target, isInningsOver, isMatchOver, matchResult, startSecondInnings, resetMatch,
-        getBowlingTeamPlayers, getBowlingTeamWK, getAvailableBatsmen, getBattingTeamPlayers
+        getBowlingTeamPlayers, getBowlingTeamWK, getAvailableBatsmen, getBattingTeamPlayers,
+        updateSetupData, setupData
     } = useMatch();
 
     const [extras, setExtras] = useState({ WIDE: false, NB: false, BYE: false, LB: false, WICKET: false });
@@ -71,6 +72,19 @@ const ScoringScreen = ({ navigation }) => {
             setShowBowlerModal(true);
         }
     }, [isOverComplete, isInningsOver, isMatchOver]);
+
+    const handleStartNextMatch = () => {
+        // Capture current setup before resetting
+        const currentSetup = JSON.parse(JSON.stringify(setupData));
+        resetMatch();
+        setTimeout(() => {
+            updateSetupData({
+                ...currentSetup,
+                date: new Date().toLocaleString()
+            });
+            navigation.navigate('TeamSetup');
+        }, 0);
+    };
 
     const handleRunPress = (runs) => {
         let extraType = null;
@@ -214,8 +228,12 @@ const ScoringScreen = ({ navigation }) => {
             <Celebration type={celebration} onFinish={() => setCelebration(null)} />
             <Portal>
                 {/* Match Start Modal */}
-                <Dialog visible={showStartModal} dismissable={false} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Select Starting Players</Dialog.Title>
+                <Dialog visible={showStartModal} onDismiss={() => setShowStartModal(false)} style={styles.boxDialog}>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Select Starting Players</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowStartModal(false)} />
+                    </View>
+
                     <Dialog.ScrollArea style={{ paddingHorizontal: 0, maxHeight: 420 }}>
                         <ScrollView>
                             <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
@@ -277,7 +295,11 @@ const ScoringScreen = ({ navigation }) => {
 
                 {/* Error Dialog */}
                 <Dialog visible={errorVisible} onDismiss={() => setErrorVisible(false)} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Missing Information</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Missing Information</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setErrorVisible(false)} />
+                    </View>
+
                     <Dialog.Content>
                         <Text variant="bodyMedium">{errorMessage}</Text>
                     </Dialog.Content>
@@ -287,8 +309,12 @@ const ScoringScreen = ({ navigation }) => {
                 </Dialog>
 
                 {/* New Bowler Modal */}
-                <Dialog visible={showBowlerModal} dismissable={false} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Over Complete! New Bowler</Dialog.Title>
+                <Dialog visible={showBowlerModal} onDismiss={() => setShowBowlerModal(false)} style={styles.boxDialog}>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Over Complete! New Bowler</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowBowlerModal(false)} />
+                    </View>
+
                     <Dialog.Content style={{ overflow: 'visible' }}>
                         <View style={{ marginBottom: 15 }}>
                             <View style={styles.bowlerGrid}>
@@ -341,7 +367,11 @@ const ScoringScreen = ({ navigation }) => {
 
                 {/* Retire Modal */}
                 <Dialog visible={showRetireModal} onDismiss={() => setShowRetireModal(false)} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Retire Batsman</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Retire Batsman</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowRetireModal(false)} />
+                    </View>
+
                     <Dialog.Content style={{ overflow: 'visible' }}>
                         <Text variant="bodyMedium" style={{ marginBottom: 10 }}>Enter name of the new batsman replacing {batsmen?.[0]?.isStriker ? batsmen[0]?.name : batsmen?.[1]?.name}:</Text>
                         <PlayerAutoComplete
@@ -361,7 +391,11 @@ const ScoringScreen = ({ navigation }) => {
 
                 {/* Wicket Modal */}
                 <Dialog visible={showWicketModal} onDismiss={() => setShowWicketModal(false)} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>{isRunOut ? 'Run Out Details' : 'Wicket!'}</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>{isRunOut ? 'Run Out Details' : 'Wicket!'}</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowWicketModal(false)} />
+                    </View>
+
                     <Dialog.Content style={{ overflow: 'visible' }}>
                         {isRunOut ? (
                             <View style={{ marginBottom: 20 }}>
@@ -483,7 +517,11 @@ const ScoringScreen = ({ navigation }) => {
 
                 {/* Fielder Picker Dialog */}
                 <Dialog visible={showFielderPicker} onDismiss={() => setShowFielderPicker(false)} style={[styles.boxDialog, { maxHeight: '80%' }]}>
-                    <Dialog.Title style={styles.boxTitle}>Select Fielder</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Select Fielder</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowFielderPicker(false)} />
+                    </View>
+
                     <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}>
                         <ScrollView>
                             {bowlingPlayers.map((player) => (
@@ -507,7 +545,11 @@ const ScoringScreen = ({ navigation }) => {
 
                 {/* Confirm Innings Finish Dialog */}
                 <Dialog visible={showFinishDialog} onDismiss={() => setShowFinishDialog(false)} style={styles.boxDialog}>
-                    <Dialog.Title style={styles.boxTitle}>Finish Innings</Dialog.Title>
+                    <View style={styles.dialogHeader}>
+                        <Dialog.Title style={styles.boxTitle}>Finish Innings</Dialog.Title>
+                        <IconButton icon="close" size={24} onPress={() => setShowFinishDialog(false)} />
+                    </View>
+
                     <Dialog.Content>
                         <Text variant="bodyMedium">Are you sure you want to finish this innings?</Text>
                     </Dialog.Content>
@@ -557,7 +599,15 @@ const ScoringScreen = ({ navigation }) => {
                                     onPress={() => navigation.navigate('Scoreboard')}
                                     style={[styles.resultBtn, { backgroundColor: '#1B4D3E' }]}
                                 >
-                                    View Scoreboard
+                                    Scoreboard
+                                </Button>
+                                <Button
+                                    mode="contained"
+                                    onPress={handleStartNextMatch}
+                                    style={[styles.resultBtn, { backgroundColor: '#4C8C4A', marginLeft: 8 }]}
+                                    icon="play-circle"
+                                >
+                                    Next Match
                                 </Button>
                                 <Button
                                     mode="outlined"
@@ -727,6 +777,12 @@ const CheckboxItem = ({ label, value, onPress }) => (
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#EDF1F0' },
+    dialogHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 10,
+    },
     scrollContainer: { padding: 12 },
     mainScoreCard: { borderRadius: 16, elevation: 4, marginBottom: 12, overflow: 'hidden' },
     scoreTopRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },

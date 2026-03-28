@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
-import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button, Portal, Dialog, Menu } from 'react-native-paper';
+import { Card, Text, Title, Paragraph, FAB, useTheme, TouchableRipple, Divider, Button, Portal, Dialog, Menu, IconButton } from 'react-native-paper';
 import { Play, Plus, History, Trophy, TrendingUp, Settings, Trash2, User, FileText, List, Shield } from 'lucide-react-native';
 import { getRecentMatches, clearAllData, deleteMatch, getOtherTeams } from '../database/database';
 import { useMatch } from '../context/MatchContext';
@@ -123,19 +123,32 @@ const HomeScreen = ({ navigation }) => {
             try { stateObj = JSON.parse(item.state_json); } catch (e) {}
         }
         
-        const teamAData = stateObj?.currentMatch?.teamAData || { name: item.teamA || 'Team A', players: [] };
-        const teamBData = stateObj?.currentMatch?.teamBData || { name: item.teamB || 'Team B', players: [] };
-        const overs = stateObj?.currentMatch?.overs || item.overs || 10;
-        const playersPerTeam = stateObj?.currentMatch?.playersPerTeam || 11;
-        const ground = stateObj?.currentMatch?.ground || '';
+        // Use setupData from saved state if available, otherwise reconstruct from top-level fields
+        const prevSetup = stateObj?.setupData || {};
+        
+        // Robust extraction: handle both early string-based and newer object-based team data
+        const getTeamData = (prev, topLevel, nameFallback) => {
+            if (prev && typeof prev === 'object' && prev.name) return prev;
+            if (typeof prev === 'string' && prev) return { name: prev, players: [] };
+            if (topLevel && typeof topLevel === 'object' && topLevel.name) return topLevel;
+            return { name: nameFallback || 'Team', players: [] };
+        };
+
+        const teamAData = getTeamData(prevSetup.teamA, stateObj?.currentMatch?.teamAData, item.teamA);
+        const teamBData = getTeamData(prevSetup.teamB, stateObj?.currentMatch?.teamBData, item.teamB);
+        
+        const overs = prevSetup.overs || stateObj?.currentMatch?.overs || item.overs || 10;
+        const playersPerTeam = prevSetup.playersPerTeam || stateObj?.currentMatch?.playersPerTeam || 11;
+        const ground = prevSetup.ground || stateObj?.currentMatch?.ground || item.ground || '';
+        const matchType = prevSetup.matchType || (item.teamB && item.teamB !== 'Opponent' ? 'other' : 'local');
 
         resetMatch();
 
         setTimeout(() => {
             updateSetupData({
-                matchType: 'local',
-                teamA: teamAData,
-                teamB: teamBData,
+                matchType,
+                teamA: { ...teamAData },
+                teamB: { ...teamBData },
                 overs,
                 playersPerTeam,
                 ground,
@@ -165,6 +178,12 @@ const HomeScreen = ({ navigation }) => {
                     onDismiss={() => setDeleteDialogVisible(false)}
                     style={styles.deleteDialog}
                 >
+                    <IconButton
+                        icon="close"
+                        size={22}
+                        onPress={() => setDeleteDialogVisible(false)}
+                        style={{ position: 'absolute', right: 4, top: 4, zIndex: 10 }}
+                    />
                     <View style={styles.deleteDialogIcon}>
                         <Trash2 size={32} color="#EF5350" />
                     </View>
@@ -208,35 +227,12 @@ const HomeScreen = ({ navigation }) => {
                             <QuickAction icon={User} label="Players" color="#2196F3" onPress={() => navigation.navigate('Players')} />
                         </View>
                         <View style={{ width: '48%' }}>
-                            <Menu
-                                visible={otherTeamsMenuVisible}
-                                onDismiss={() => setOtherTeamsMenuVisible(false)}
-                                anchor={
-                                    <View>
-                                        <QuickAction 
-                                            icon={Shield} 
-                                            label="Other Teams" 
-                                            color="#FF9800" 
-                                            onPress={() => setOtherTeamsMenuVisible(true)} 
-                                        />
-                                    </View>
-                                }
-                            >
-                                {otherTeams.length === 0 ? (
-                                    <Menu.Item title="No other teams found" disabled />
-                                ) : (
-                                    otherTeams.map((team, idx) => (
-                                        <Menu.Item 
-                                            key={idx} 
-                                            onPress={() => {
-                                                setOtherTeamsMenuVisible(false);
-                                                navigation.navigate('Players', { filterTeam: team });
-                                            }} 
-                                            title={team} 
-                                        />
-                                    ))
-                                )}
-                            </Menu>
+                            <QuickAction 
+                                icon={Shield} 
+                                label="Other Teams" 
+                                color="#FF9800" 
+                                onPress={() => navigation.navigate('OtherTeams')} 
+                            />
                         </View>
                         <View style={{ width: '48%' }}>
                             <QuickAction icon={Settings} label="Settings" color="#757575" onPress={() => navigation.navigate('Settings')} />

@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Card, Text, Divider, Button, Portal, Dialog, Searchbar, useTheme } from 'react-native-paper';
+import { Card, Text, Divider, Button, Portal, Dialog, Searchbar, useTheme, IconButton } from 'react-native-paper';
 import { Play, History, Trash2, FileText, ArrowLeft } from 'lucide-react-native';
 import { getAllMatches, deleteMatch } from '../database/database';
 import { useMatch } from '../context/MatchContext';
 import { useIsFocused } from '@react-navigation/native';
 
-const AllMatchesScreen = ({ navigation }) => {
+const AllMatchesScreen = ({ navigation, route }) => {
     const theme = useTheme();
     const isFocused = useIsFocused();
     const { resumeMatch, updateSetupData, resetMatch } = useMatch();
     const [matches, setMatches] = useState([]);
     const [filteredMatches, setFilteredMatches] = useState([]);
+    const filterTeam = route?.params?.filterTeam;
+
+    React.useLayoutEffect(() => {
+        if (filterTeam) {
+            navigation.setOptions({ title: `Matches: ${filterTeam}` });
+        }
+    }, [navigation, filterTeam]);
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
@@ -38,7 +45,10 @@ const AllMatchesScreen = ({ navigation }) => {
 
     const loadMatches = async () => {
         try {
-            const data = await getAllMatches();
+            let data = await getAllMatches();
+            if (filterTeam) {
+                data = data.filter(m => m.teamA === filterTeam || m.teamB === filterTeam);
+            }
             setMatches(data);
             setFilteredMatches(data);
         } catch (error) {
@@ -133,6 +143,12 @@ const AllMatchesScreen = ({ navigation }) => {
                     onDismiss={() => setDeleteDialogVisible(false)}
                     style={styles.deleteDialog}
                 >
+                    <IconButton
+                        icon="close"
+                        size={22}
+                        onPress={() => setDeleteDialogVisible(false)}
+                        style={{ position: 'absolute', right: 4, top: 4, zIndex: 10 }}
+                    />
                     <View style={styles.deleteDialogIcon}>
                         <Trash2 size={32} color="#EF5350" />
                     </View>

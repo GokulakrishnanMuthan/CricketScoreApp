@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Keyboard, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Text, Card, useTheme, Menu } from 'react-native-paper';
 import { Shield, Target, Users } from 'lucide-react-native';
 import { useMatch } from '../context/MatchContext';
@@ -10,17 +10,27 @@ const TeamSetupScreen = ({ navigation }) => {
     const theme = useTheme();
     const { setupData = {}, updateSetupData } = useMatch();
     
-    const [teamA, setTeamA] = useState('Striker XI');
-    const [teamB, setTeamB] = useState('');
-    const [overs, setOvers] = useState('10');
-    const [playersPerTeam, setPlayersPerTeam] = useState('11');
-    const [ground, setGround] = useState('');
-    const [matchDate, setMatchDate] = useState(new Date().toLocaleString());
+    const [teamA, setTeamA] = useState(setupData.teamA?.name || 'Striker XI');
+    const [teamB, setTeamB] = useState(setupData.teamB?.name || '');
+    const [overs, setOvers] = useState(setupData.overs?.toString() || '10');
+    const [playersPerTeam, setPlayersPerTeam] = useState(setupData.playersPerTeam?.toString() || '11');
+    const [ground, setGround] = useState(setupData.ground || '');
+    const [matchDate, setMatchDate] = useState(setupData.date || new Date().toLocaleString());
+
+    useEffect(() => {
+        if (setupData.teamA?.name) setTeamA(setupData.teamA.name);
+        if (setupData.teamB?.name) setTeamB(setupData.teamB.name);
+        if (setupData.overs) setOvers(setupData.overs.toString());
+        if (setupData.playersPerTeam) setPlayersPerTeam(setupData.playersPerTeam.toString());
+        if (setupData.ground) setGround(setupData.ground);
+        if (setupData.date) setMatchDate(setupData.date);
+    }, [setupData]);
 
     const isOtherTeam = setupData.matchType === 'other';
 
     const [otherTeams, setOtherTeams] = useState([]);
     const [showMenu, setShowMenu] = useState(false);
+    const [teamBFocused, setTeamBFocused] = useState(false);
 
     useEffect(() => {
         if (isOtherTeam) {
@@ -50,7 +60,11 @@ const TeamSetupScreen = ({ navigation }) => {
             style={{ flex: 1 }} 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+            <ScrollView 
+                style={styles.container} 
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+            >
                 <Text style={styles.title}>Match Settings</Text>
                 <Text style={styles.subtitle}>
                     {isOtherTeam ? 'Setup match against an external team' : 'Setup match between local teams'}
@@ -71,36 +85,42 @@ const TeamSetupScreen = ({ navigation }) => {
 
                         {isOtherTeam ? (
                             <View style={{ position: 'relative', zIndex: 10 }}>
-                                <Menu
-                                    visible={showMenu && filteredTeams.length > 0}
-                                    onDismiss={() => setShowMenu(false)}
-                                    anchor={
-                                        <TextInput
-                                            label="Opponent Team Name"
-                                            value={teamB}
-                                            onChangeText={(text) => { setTeamB(text); setShowMenu(true); }}
-                                            onFocus={() => setShowMenu(true)}
-                                            mode="outlined"
-                                            left={<TextInput.Icon icon={() => <Target size={20} color="#EF5350" />} />}
-                                            style={styles.input}
-                                            outlineStyle={{ borderRadius: 12 }}
-                                            activeOutlineColor="#4C8C4A"
-                                        />
-                                    }
-                                    style={{ marginTop: 60 }}
-                                >
-                                    {filteredTeams.map((t, i) => (
-                                        <Menu.Item
-                                            key={i}
-                                            onPress={() => {
-                                                setTeamB(t);
-                                                setShowMenu(false);
-                                                Keyboard.dismiss();
-                                            }}
-                                            title={t}
-                                        />
-                                    ))}
-                                </Menu>
+                                <TextInput
+                                    label="Opponent Team Name"
+                                    value={teamB}
+                                    onChangeText={(text) => {
+                                        setTeamB(text);
+                                        setShowMenu(true);
+                                    }}
+                                    onFocus={() => { setTeamBFocused(true); setShowMenu(true); }}
+                                    onBlur={() => setTimeout(() => setTeamBFocused(false), 250)}
+                                    mode="outlined"
+                                    left={<TextInput.Icon icon={() => <Target size={20} color="#EF5350" />} />}
+                                    style={styles.input}
+                                    outlineStyle={{ borderRadius: 12 }}
+                                    activeOutlineColor="#4C8C4A"
+                                />
+                                {teamBFocused && filteredTeams.length > 0 && (
+                                    <View style={styles.suggestionsContainer}>
+                                        <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+                                            {filteredTeams.map((t, i) => (
+                                                <TouchableOpacity 
+                                                    key={i} 
+                                                    style={styles.suggestionItem}
+                                                    onPress={() => {
+                                                        setTeamB(t);
+                                                        setTeamBFocused(false);
+                                                        setShowMenu(false);
+                                                        Keyboard.dismiss();
+                                                    }}
+                                                >
+                                                    <Shield size={16} color="#4C8C4A" />
+                                                    <Text style={styles.suggestionText}>{t}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
                             </View>
                         ) : (
                             <TextInput
@@ -190,6 +210,34 @@ const styles = StyleSheet.create({
         backgroundColor: '#4C8C4A',
         elevation: 4,
         marginBottom: 20
+    },
+    suggestionsContainer: {
+        position: 'absolute',
+        top: 60,
+        left: 0,
+        right: 0,
+        backgroundColor: 'white',
+        borderRadius: 12,
+        elevation: 8,
+        zIndex: 1000,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E8F5E9',
+    },
+    suggestionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
+        backgroundColor: '#FCFCFC'
+    },
+    suggestionText: {
+        marginLeft: 12,
+        fontSize: 15,
+        color: '#1B4D3E',
+        fontWeight: '600'
     }
 });
 

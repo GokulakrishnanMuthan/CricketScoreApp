@@ -20,6 +20,8 @@ import TeamSetupScreen from './src/screens/TeamSetupScreen.js';
 import PlayingXISelectionScreen from './src/screens/PlayingXISelectionScreen.js';
 import MatchSummaryScreen from './src/screens/MatchSummaryScreen.js';
 import AllMatchesScreen from './src/screens/AllMatchesScreen.js';
+import OtherTeamsScreen from './src/screens/OtherTeamsScreen.js';
+import AddTeamScreen from './src/screens/AddTeamScreen.js';
 import { DefaultTheme } from '@react-navigation/native';
 
 const Stack = createStackNavigator();
@@ -72,6 +74,8 @@ export default function App() {
                             <Stack.Screen name="PlayingXISelection" component={PlayingXISelectionScreen} options={{ title: 'Select Playing XI' }} />
                             <Stack.Screen name="MatchSummary" component={MatchSummaryScreen} options={{ title: 'Match Summary' }} />
                             <Stack.Screen name="AllMatches" component={AllMatchesScreen} options={{ title: 'All Matches' }} />
+                            <Stack.Screen name="OtherTeams" component={OtherTeamsScreen} options={{ title: 'Opponent Teams' }} />
+                            <Stack.Screen name="AddTeam" component={AddTeamScreen} options={{ headerShown: false }} />
                         </Stack.Navigator>
                     </NavigationContainer>
                 </MatchProvider>

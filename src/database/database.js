@@ -211,6 +211,11 @@ export const getPlayersByTeam = async (teamName) => {
     return database.getAllAsync("SELECT * FROM app_players WHERE team_name = ?", [teamName]);
 };
 
+export const deleteTeam = async (teamName) => {
+    const database = await getDb();
+    await database.runAsync("DELETE FROM app_players WHERE team_name = ?", [teamName]);
+};
+
 export const getAllMatchStates = async () => {
     const database = await getDb();
     return database.getAllAsync(

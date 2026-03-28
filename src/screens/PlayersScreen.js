@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, FlatList, Linking } from 'react-native';
-import { Button, Card, Text, useTheme, Avatar, Portal, Dialog } from 'react-native-paper';
+import { Button, Card, Text, useTheme, Avatar, Portal, Dialog, IconButton, Searchbar } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { User, Plus, Trash2, Hash, Phone, Contact, Edit2, Instagram, Facebook, Shield, Star, BarChart2 } from 'lucide-react-native';
+import { User, Plus, Trash2, Hash, Phone, Contact, Edit2, Instagram, Facebook, Shield, Star, BarChart2, History } from 'lucide-react-native';
 import { getAppPlayers, deleteAppPlayer } from '../database/database';
 
 const PlayersScreen = ({ navigation, route }) => {
@@ -10,6 +10,7 @@ const PlayersScreen = ({ navigation, route }) => {
     const [players, setPlayers] = useState([]);
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const filterTeam = route?.params?.filterTeam;
 
     React.useLayoutEffect(() => {
@@ -203,6 +204,12 @@ const PlayersScreen = ({ navigation, route }) => {
                     onDismiss={() => setDeleteDialogVisible(false)}
                     style={styles.deleteDialog}
                 >
+                    <IconButton
+                        icon="close"
+                        size={22}
+                        onPress={() => setDeleteDialogVisible(false)}
+                        style={{ position: 'absolute', right: 4, top: 4, zIndex: 10 }}
+                    />
                     <View style={styles.deleteDialogIcon}>
                         <Trash2 size={32} color="#EF5350" />
                     </View>
@@ -235,11 +242,36 @@ const PlayersScreen = ({ navigation, route }) => {
             </Portal>
 
             <View style={styles.header}>
-                <Text style={styles.headerSubtitle}>{players.length} {filterTeam ? 'Players' : 'Players Registered'}</Text>
+                <View style={styles.headerTop}>
+                    <View>
+                        <Text style={styles.headerSubtitle}>{players.length} {filterTeam ? 'Players Found' : 'Players Registered'}</Text>
+                    </View>
+                    {filterTeam && (
+                        <TouchableOpacity 
+                            onPress={() => navigation.navigate('AllMatches', { filterTeam })}
+                            style={styles.historyChip}
+                        >
+                            <History color="white" size={14} />
+                            <Text style={styles.historyChipText}>View Matches</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+                <Searchbar
+                    placeholder="Search by name or team..."
+                    onChangeText={setSearchQuery}
+                    value={searchQuery}
+                    style={styles.searchbar}
+                    inputStyle={{ fontSize: 13, color: '#1B4D3E' }}
+                    iconColor="#4C8C4A"
+                    placeholderTextColor="#A0A0A0"
+                />
             </View>
 
             <FlatList
-                data={players}
+                data={players.filter(p => 
+                    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    (p.team_name && p.team_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                )}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderPlayerItem}
                 contentContainerStyle={styles.listContainer}
@@ -264,9 +296,31 @@ const PlayersScreen = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAF9' },
-    header: { padding: 20, backgroundColor: '#1B4D3E' },
+    header: { 
+        paddingHorizontal: 20, 
+        paddingVertical: 18, 
+        backgroundColor: '#1B4D3E', 
+        borderBottomLeftRadius: 25, 
+        borderBottomRightRadius: 25,
+        elevation: 10,
+        zIndex: 10
+    },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 10 },
     headerTitle: { color: 'white', fontWeight: 'bold', fontSize: 24 },
-    headerSubtitle: { color: '#B0C4B1', fontSize: 14 },
+    headerSubtitle: { color: '#B0C4B1', fontSize: 13, fontWeight: '700' },
+    historyChip: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(255, 255, 255, 0.12)', 
+        paddingHorizontal: 12, 
+        paddingVertical: 8, 
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        gap: 6
+    },
+    historyChipText: { color: 'white', fontSize: 11, fontWeight: '800' },
+    searchbar: { backgroundColor: 'white', elevation: 5, borderRadius: 15, height: 48 },
     listContainer: { padding: 16, paddingBottom: 100 },
     playerCard: { marginBottom: 12, borderRadius: 16, elevation: 3, backgroundColor: 'white' },
     cardContent: { padding: 16 },
